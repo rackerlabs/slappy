@@ -1,0 +1,8 @@
+# For the pythons
+.venv
+
+# For messing around
+temp*
+
+# The binary
+slappy
