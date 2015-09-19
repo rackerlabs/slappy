@@ -8,3 +8,9 @@ run:
 
 dependencies:
 	go get github.com/miekg/dns
+
+test:
+	./slappy &
+	.venv/bin/python send14.py
+	.venv/bin/python sendnotify.py
+	pkill slappy
