@@ -30,18 +30,19 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
     message := new(dns.Msg)
     message.SetReply(request)
 
-    // Allow_notify
+    // TODO: allow_notify
     full_address := writer.RemoteAddr().String()
     address:= strings.Split(full_address, ":")[0]
     port:= strings.Split(full_address, ":")[1]
-    fmt.Println(address + " " + port)
-
 
     question := request.Question[0]
-    fmt.Printf("Message.opcode: %d\n", request.Opcode)
-    fmt.Println("Question.name: " + question.Name)
-    fmt.Printf("Question.Qtype: %d\n", question.Qtype)
-    fmt.Printf("Question.Qclass: %d\n", question.Qclass)
+    if *printf {
+        fmt.Println(address + " " + port)
+        fmt.Printf("Message.opcode: %d\n", request.Opcode)
+        fmt.Println("Question.name: " + question.Name)
+        fmt.Printf("Question.Qtype: %d\n", question.Qtype)
+        fmt.Printf("Question.Qclass: %d\n", question.Qclass)
+    }
     
     switch request.Opcode {
         case dns.OpcodeQuery:
@@ -112,9 +113,9 @@ forever:
 }
 
 func main() {
-    fmt.Println("hello, world\n")
+    fmt.Println("slappy!\n")
 
-    printf = flag.Bool("print", false, "print replies")
+    printf = flag.Bool("debug", false, "print extra info")
     flag.Usage = func() {
         flag.PrintDefaults()
     }
