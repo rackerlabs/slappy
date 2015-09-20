@@ -12,6 +12,7 @@ import (
 
 var (
     printf   *bool
+    master   *string
 )
 
 // Command and Control OPCODE
@@ -89,12 +90,29 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
     writer.WriteMsg(message)
 }
 
+func do_axfr(zone_name string) []dns.RR {
+    transfer := new(dns.Transfer)
+    message := new(dns.Msg)
+    message.SetAxfr(zone_name)
+
+    channel, err := transfer.In(message, *master)
+    if err != nil {
+        fmt.Printf("Error on AXFR %s\n", err.Error())
+    }
+
+    result := []dns.RR{}
+    for envelope := range channel {
+        result = append(result, envelope.RR...)
+    }
+    return result
+}
+
 func serve(net string) {
     server := &dns.Server{Addr: ":8053", Net: net}
     dns.HandleFunc(".", handle)
     err := server.ListenAndServe()
     if err != nil {
-        fmt.Println("Failed to set up the "+net+"server %s\n", err.Error())
+        fmt.Printf("Failed to set up the "+net+"server %s\n", err.Error())
     }
 }
 
@@ -116,6 +134,7 @@ func main() {
     fmt.Println("slappy!\n")
 
     printf = flag.Bool("debug", false, "print extra info")
+    master = flag.String("master", "", "master for axfrs")
     flag.Usage = func() {
         flag.PrintDefaults()
     }
@@ -124,5 +143,5 @@ func main() {
     go serve("tcp")
     go serve("udp")
 
-    listen()    
+    listen()
 }
