@@ -13,6 +13,7 @@ import (
 var (
     printf   *bool
     master   *string
+    query_dest *string
 )
 
 // Command and Control OPCODE
@@ -107,6 +108,24 @@ func do_axfr(zone_name string) []dns.RR {
     return result
 }
 
+func get_serial(zone_name string) uint32 {
+    m := new(dns.Msg)
+    m.SetQuestion(zone_name, dns.TypeSOA)
+    in, err := dns.Exchange(m, *query_dest)
+    var serial uint32 = 0
+    if err != nil {
+        return serial
+    }
+    if in.Rcode != dns.RcodeSuccess {
+        return serial
+    }
+    if rr, ok := in.Answer[0].(*dns.SOA); ok {
+        serial = rr.Serial
+        fmt.Println(rr.Serial)
+    }
+    return serial
+}
+
 func serve(net string) {
     server := &dns.Server{Addr: ":8053", Net: net}
     dns.HandleFunc(".", handle)
@@ -135,11 +154,12 @@ func main() {
 
     printf = flag.Bool("debug", false, "print extra info")
     master = flag.String("master", "", "master for axfrs")
+    query_dest = flag.String("queries", "", "nameserver to query before operating")
     flag.Usage = func() {
         flag.PrintDefaults()
     }
     flag.Parse()
-    
+
     go serve("tcp")
     go serve("udp")
 
