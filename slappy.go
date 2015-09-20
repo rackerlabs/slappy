@@ -14,6 +14,7 @@ var (
     printf   *bool
     master   *string
     query_dest *string
+    zone_file_path *string
 )
 
 // Command and Control OPCODE
@@ -126,6 +127,28 @@ func get_serial(zone_name string) uint32 {
     return serial
 }
 
+func write_zonefile(zone_name string, rrs []dns.RR) {
+    lines := []string{}
+    for _,rr := range rrs {
+        lines = append(lines, dns.RR.String(rr), "\n")
+    }
+    zonefile := strings.Join(lines, "")
+
+    fmt.Printf(zonefile)
+
+    f, err := os.Create(*zone_file_path + zone_name + "zone")
+    if err != nil {
+        // handle
+    }
+    defer f.Close()
+
+    _, err = f.WriteString(zonefile)
+    if err != nil {
+        // handle
+    }
+    f.Sync()
+}
+
 func serve(net string) {
     server := &dns.Server{Addr: ":8053", Net: net}
     dns.HandleFunc(".", handle)
@@ -155,6 +178,7 @@ func main() {
     printf = flag.Bool("debug", false, "print extra info")
     master = flag.String("master", "", "master for axfrs")
     query_dest = flag.String("queries", "", "nameserver to query before operating")
+    zone_file_path = flag.String("zone_path", "", "path to write zone files")
     flag.Usage = func() {
         flag.PrintDefaults()
     }
