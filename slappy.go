@@ -1,6 +1,7 @@
 package main
 
 import (
+    "errors"
     "fmt"
     "flag"
     "github.com/miekg/dns"
@@ -138,7 +139,19 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 }
 
 func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
-    fmt.Println("rndc delzone")
+    zone_name := question.Name
+
+    serial := get_serial(zone_name)
+    if serial == 0 {
+        fmt.Printf("zone %s doesn't exist\n", zone_name)
+        return message
+    }
+
+    err := rndc("delzone", zone_name, "")
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
 
     // Send an authoritative answer
     message.MsgHdr.Authoritative = true
@@ -147,12 +160,24 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 func rndc(op, zone_name, output_path string) error {
     cmd := "rndc"
-    zone_clause := fmt.Sprintf("{ type master; file \"%s\"; };", output_path)
-    args := []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, "."), zone_clause}
+    zone_clause := ""
+    args := []string{}
+
+    switch op {
+        case "addzone":
+            zone_clause = fmt.Sprintf("{ type master; file \"%s\"; };", output_path)
+            args = []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, "."), zone_clause}
+        case "delzone":
+            args = []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, ".")}
+        default:
+            return errors.New("Invalid RNDC command")
+    }
+
     if err := exec.Command(cmd, args...).Run(); err != nil {
         fmt.Fprintln(os.Stderr, err)
         return err
     }
+
     return nil
 }
 
@@ -163,6 +188,7 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
     message := new(dns.Msg)
     message.SetAxfr(zone_name)
 
+    // TODO: investigate transfer source
     channel, err := transfer.In(message, *master)
     if err != nil {
         fmt.Printf("Error on AXFR %s\n", err.Error())
