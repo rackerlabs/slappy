@@ -150,7 +150,7 @@ func write_zonefile(zone_name string, rrs []dns.RR) {
 }
 
 func serve(net string) {
-    server := &dns.Server{Addr: ":8053", Net: net}
+    server := &dns.Server{Addr: ":5358", Net: net}
     dns.HandleFunc(".", handle)
     err := server.ListenAndServe()
     if err != nil {
