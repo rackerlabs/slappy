@@ -30,15 +30,17 @@ const CREATE = 65282
 const DELETE = 65283
 
 func handle(writer dns.ResponseWriter, request *dns.Msg) {
+    question := request.Question[0]
+
     message := new(dns.Msg)
     message.SetReply(request)
+    message.SetRcode(message, dns.RcodeSuccess)
 
     // TODO: allow_notify
     full_address := writer.RemoteAddr().String()
     address:= strings.Split(full_address, ":")[0]
     port:= strings.Split(full_address, ":")[1]
 
-    question := request.Question[0]
     if *printf {
         fmt.Println(address + " " + port)
         fmt.Printf("Message.opcode: %d\n", request.Opcode)
@@ -68,6 +70,13 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
         default:
             handle_error(message, writer)
     }
+
+    // Apparently this dns library takes the question out on
+    // certain RCodes, like REFUSED, which is not right. So we reinsert it.
+    message.Question[0].Name = question.Name
+    message.Question[0].Qtype = question.Qtype
+    message.Question[0].Qclass = question.Qclass
+    message.MsgHdr.Opcode = request.Opcode
 
     writer.WriteMsg(message)
 }
