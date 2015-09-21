@@ -5,6 +5,7 @@ import (
     "flag"
     "github.com/miekg/dns"
     "os"
+    "os/exec"
     "os/signal"
     "strings"
     "syscall"
@@ -48,7 +49,7 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
         fmt.Printf("Question.Qtype: %d\n", question.Qtype)
         fmt.Printf("Question.Qclass: %d\n", question.Qclass)
     }
-    
+
     switch request.Opcode {
         case dns.OpcodeQuery:
             message = handle_error(message, writer, "REFUSED")
@@ -94,9 +95,35 @@ func handle_error(message *dns.Msg, writer dns.ResponseWriter, error string) *dn
     return message
 }
 
-func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
-    fmt.Println("rndc addzone")
-    writer.WriteMsg(message)
+func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
+    zone_name := question.Name
+
+    serial := get_serial(zone_name)
+    if serial != 0 {
+        fmt.Printf("zone %s already exists\n", zone_name)
+        return message
+    }
+
+    zone, err := do_axfr(zone_name)
+    if len(zone) == 0 || err != nil {
+        fmt.Printf("There was a problem with the AXFR")
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    output_path := *zone_file_path + zone_name + "zone"
+
+    err = write_zonefile(zone_name, zone, output_path)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    err = rndc("addzone", zone_name, output_path)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
     // Send an authoritative answer
     message.MsgHdr.Authoritative = true
     return message
@@ -117,6 +144,16 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
     message.MsgHdr.Authoritative = true
     return message
 }
+
+func rndc(op, zone_name, output_path string) error {
+    cmd := "rndc"
+    zone_clause := fmt.Sprintf("{ type master; file \"%s\"; };", output_path)
+    args := []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, "."), zone_clause}
+    if err := exec.Command(cmd, args...).Run(); err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return err
+    }
+    return nil
 }
 
 func do_axfr(zone_name string) ([]dns.RR, error) {
