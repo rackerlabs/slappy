@@ -97,19 +97,28 @@ func handle_error(message *dns.Msg, writer dns.ResponseWriter, error string) *dn
 func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
     fmt.Println("rndc addzone")
     writer.WriteMsg(message)
+    // Send an authoritative answer
+    message.MsgHdr.Authoritative = true
+    return message
 }
 
-func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
+func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
     fmt.Println("AXFR")
-    writer.WriteMsg(message)
+
+    // Send an authoritative answer
+    message.MsgHdr.Authoritative = true
+    return message
 }
 
-func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
+func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
     fmt.Println("rndc delzone")
-    writer.WriteMsg(message)
+
+    // Send an authoritative answer
+    message.MsgHdr.Authoritative = true
+    return message
+}
 }
 
-func do_axfr(zone_name string) []dns.RR {
 func do_axfr(zone_name string) ([]dns.RR, error) {
     result := []dns.RR{}
 
