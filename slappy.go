@@ -5,6 +5,7 @@ import (
     "flag"
     "github.com/miekg/dns"
     "os"
+    "os/exec"
     "os/signal"
     "strings"
     "syscall"
@@ -30,15 +31,17 @@ const CREATE = 65282
 const DELETE = 65283
 
 func handle(writer dns.ResponseWriter, request *dns.Msg) {
+    question := request.Question[0]
+
     message := new(dns.Msg)
     message.SetReply(request)
+    message.SetRcode(message, dns.RcodeSuccess)
 
     // TODO: allow_notify
     full_address := writer.RemoteAddr().String()
     address:= strings.Split(full_address, ":")[0]
     port:= strings.Split(full_address, ":")[1]
 
-    question := request.Question[0]
     if *printf {
         fmt.Println(address + " " + port)
         fmt.Printf("Message.opcode: %d\n", request.Opcode)
@@ -46,53 +49,116 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
         fmt.Printf("Question.Qtype: %d\n", question.Qtype)
         fmt.Printf("Question.Qclass: %d\n", question.Qclass)
     }
-    
+
     switch request.Opcode {
         case dns.OpcodeQuery:
-            handle_error(message, writer)
+            message = handle_error(message, writer, "REFUSED")
         case dns.OpcodeNotify:
-            handle_notify(question, message, writer)
+            message = handle_notify(question, message, writer)
         case CC:
             if question.Qclass == ClassCC {
                 switch question.Qtype {
                     case CREATE:
-                        handle_create(question, message, writer)
+                        message = handle_create(question, message, writer)
                     case DELETE:
-                        handle_delete(question, message, writer)
+                        message = handle_delete(question, message, writer)
                     default:
-                        handle_error(message, writer)
+                        message = handle_error(message, writer, "REFUSED")
                 }
             } else {
-                handle_error(message, writer)
+                message = handle_error(message, writer, "REFUSED")
             }
         default:
-            handle_error(message, writer)
+            message = handle_error(message, writer, "REFUSED")
     }
 
+    // Apparently this dns library takes the question out on
+    // certain RCodes, like REFUSED, which is not right. So we reinsert it.
+    message.Question[0].Name = question.Name
+    message.Question[0].Qtype = question.Qtype
+    message.Question[0].Qclass = question.Qclass
+    message.MsgHdr.Opcode = request.Opcode
+
     writer.WriteMsg(message)
 }
 
-func handle_error(message *dns.Msg, writer dns.ResponseWriter) {
-    message.SetRcode(message, dns.RcodeRefused)
-    writer.WriteMsg(message)
+func handle_error(message *dns.Msg, writer dns.ResponseWriter, error string) *dns.Msg {
+    switch error {
+        case "REFUSED":
+            message.SetRcode(message, dns.RcodeRefused)
+        case "SERVFAIL":
+            message.SetRcode(message, dns.RcodeServerFailure)
+        default:
+            message.SetRcode(message, dns.RcodeServerFailure)
+    }
+
+    return message
 }
 
-func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
-    fmt.Println("rndc addzone")
-    writer.WriteMsg(message)
+func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
+    zone_name := question.Name
+
+    serial := get_serial(zone_name)
+    if serial != 0 {
+        fmt.Printf("zone %s already exists\n", zone_name)
+        return message
+    }
+
+    zone, err := do_axfr(zone_name)
+    if len(zone) == 0 || err != nil {
+        fmt.Printf("There was a problem with the AXFR")
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    output_path := *zone_file_path + zone_name + "zone"
+
+    err = write_zonefile(zone_name, zone, output_path)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    err = rndc("addzone", zone_name, output_path)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    // Send an authoritative answer
+    message.MsgHdr.Authoritative = true
+    return message
 }
 
-func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
+func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
     fmt.Println("AXFR")
-    writer.WriteMsg(message)
+
+    // Send an authoritative answer
+    message.MsgHdr.Authoritative = true
+    return message
 }
 
-func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) {
+func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
     fmt.Println("rndc delzone")
-    writer.WriteMsg(message)
+
+    // Send an authoritative answer
+    message.MsgHdr.Authoritative = true
+    return message
 }
 
-func do_axfr(zone_name string) []dns.RR {
+func rndc(op, zone_name, output_path string) error {
+    cmd := "rndc"
+    zone_clause := fmt.Sprintf("{ type master; file \"%s\"; };", output_path)
+    args := []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, "."), zone_clause}
+    if err := exec.Command(cmd, args...).Run(); err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return err
+    }
+    return nil
+}
+
+func do_axfr(zone_name string) ([]dns.RR, error) {
+    result := []dns.RR{}
+
     transfer := new(dns.Transfer)
     message := new(dns.Msg)
     message.SetAxfr(zone_name)
@@ -100,13 +166,13 @@ func do_axfr(zone_name string) []dns.RR {
     channel, err := transfer.In(message, *master)
     if err != nil {
         fmt.Printf("Error on AXFR %s\n", err.Error())
+        return result, err
     }
 
-    result := []dns.RR{}
     for envelope := range channel {
         result = append(result, envelope.RR...)
     }
-    return result
+    return result, nil
 }
 
 func get_serial(zone_name string) uint32 {
@@ -127,7 +193,7 @@ func get_serial(zone_name string) uint32 {
     return serial
 }
 
-func write_zonefile(zone_name string, rrs []dns.RR) {
+func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
     lines := []string{}
     for _,rr := range rrs {
         lines = append(lines, dns.RR.String(rr), "\n")
@@ -136,21 +202,22 @@ func write_zonefile(zone_name string, rrs []dns.RR) {
 
     fmt.Printf(zonefile)
 
-    f, err := os.Create(*zone_file_path + zone_name + "zone")
+    f, err := os.Create(output_path)
     if err != nil {
-        // handle
+        return err
     }
     defer f.Close()
 
     _, err = f.WriteString(zonefile)
     if err != nil {
-        // handle
+        return err
     }
     f.Sync()
+    return nil
 }
 
 func serve(net string) {
-    server := &dns.Server{Addr: ":8053", Net: net}
+    server := &dns.Server{Addr: ":5358", Net: net}
     dns.HandleFunc(".", handle)
     err := server.ListenAndServe()
     if err != nil {
