@@ -39,17 +39,17 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
     message.SetRcode(message, dns.RcodeSuccess)
 
     // TODO: allow_notify
-    full_address := writer.RemoteAddr().String()
-    address:= strings.Split(full_address, ":")[0]
-    port:= strings.Split(full_address, ":")[1]
+    // full_address := writer.RemoteAddr().String()
+    // address:= strings.Split(full_address, ":")[0]
+    // port:= strings.Split(full_address, ":")[1]
 
-    if *printf {
-        fmt.Println(address + " " + port)
-        fmt.Printf("Message.opcode: %d\n", request.Opcode)
-        fmt.Println("Question.name: " + question.Name)
-        fmt.Printf("Question.Qtype: %d\n", question.Qtype)
-        fmt.Printf("Question.Qclass: %d\n", question.Qclass)
-    }
+    // if *printf {
+    //     fmt.Println(address + " " + port)
+    //     fmt.Printf("Message.opcode: %d\n", request.Opcode)
+    //     fmt.Println("Question.name: " + question.Name)
+    //     fmt.Printf("Question.Qtype: %d\n", question.Qtype)
+    //     fmt.Printf("Question.Qclass: %d\n", question.Qclass)
+    // }
 
     switch request.Opcode {
         case dns.OpcodeQuery:
@@ -125,6 +125,9 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
         return handle_error(message, writer, "SERVFAIL")
     }
 
+    if *printf {
+        fmt.Printf("%s created\n", zone_name)
+    }
     // Send an authoritative answer
     message.MsgHdr.Authoritative = true
     return message
@@ -161,6 +164,9 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
         return handle_error(message, writer, "SERVFAIL")
     }
 
+    if *printf {
+        fmt.Printf("%s updated\n", zone_name)
+    }
     // Send an authoritative answer
     message.MsgHdr.Authoritative = true
     return message
@@ -181,6 +187,9 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
         return handle_error(message, writer, "SERVFAIL")
     }
 
+    if *printf {
+        fmt.Printf("%s deleted\n", zone_name)
+    }
     // Send an authoritative answer
     message.MsgHdr.Authoritative = true
     return message
@@ -244,7 +253,6 @@ func get_serial(zone_name string) uint32 {
     }
     if rr, ok := in.Answer[0].(*dns.SOA); ok {
         serial = rr.Serial
-        fmt.Println(rr.Serial)
     }
     return serial
 }
