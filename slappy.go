@@ -131,7 +131,35 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 }
 
 func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
-    fmt.Println("AXFR")
+    zone_name := question.Name
+
+    serial := get_serial(zone_name)
+    if serial == 0 {
+        fmt.Printf("zone %s doesn't exist\n", zone_name)
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    zone, err := do_axfr(zone_name)
+    if len(zone) == 0 || err != nil {
+        fmt.Printf("There was a problem with the AXFR")
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    // TODO Check the SOA record in 'zone' and if it's <= serial
+    // don't do the rest of this
+    output_path := *zone_file_path + zone_name + "zone"
+
+    err = write_zonefile(zone_name, zone, output_path)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
+
+    err = rndc("reload", zone_name, output_path)
+    if err != nil {
+        fmt.Fprintln(os.Stderr, err)
+        return handle_error(message, writer, "SERVFAIL")
+    }
 
     // Send an authoritative answer
     message.MsgHdr.Authoritative = true
@@ -168,6 +196,8 @@ func rndc(op, zone_name, output_path string) error {
             zone_clause = fmt.Sprintf("{ type master; file \"%s\"; };", output_path)
             args = []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, "."), zone_clause}
         case "delzone":
+            args = []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, ".")}
+        case "reload":
             args = []string{"-s", "127.0.0.1", "-p", "953", op, strings.TrimSuffix(zone_name, ".")}
         default:
             return errors.New("Invalid RNDC command")
@@ -225,8 +255,6 @@ func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
         lines = append(lines, dns.RR.String(rr), "\n")
     }
     zonefile := strings.Join(lines, "")
-
-    fmt.Printf(zonefile)
 
     f, err := os.Create(output_path)
     if err != nil {
