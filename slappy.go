@@ -4,10 +4,11 @@ import (
     "errors"
     "fmt"
     "flag"
-    "github.com/miekg/dns"
+    "github.com/TimSimmons/dns"
     "os"
     "os/exec"
     "os/signal"
+    "net"
     "strings"
     "syscall"
 )
@@ -17,6 +18,7 @@ var (
     master   *string
     query_dest *string
     zone_file_path *string
+    transfer_source *net.TCPAddr
 )
 
 // Command and Control OPCODE
@@ -222,12 +224,16 @@ func rndc(op, zone_name, output_path string) error {
 
 func do_axfr(zone_name string) ([]dns.RR, error) {
     result := []dns.RR{}
-
-    transfer := new(dns.Transfer)
     message := new(dns.Msg)
     message.SetAxfr(zone_name)
+    transfer := new(dns.Transfer)
+    if transfer_source != nil {
+        d := net.Dialer{LocalAddr: transfer_source}
+        c, _ := d.Dial("tcp", *master)
+        dnscon := &dns.Conn{Conn:c}
+        transfer = &dns.Transfer{Conn: dnscon}
+    }
 
-    // TODO: investigate transfer source
     channel, err := transfer.In(message, *master)
     if err != nil {
         fmt.Printf("Error on AXFR %s\n", err.Error())
@@ -308,10 +314,16 @@ func main() {
     master = flag.String("master", "", "master for axfrs")
     query_dest = flag.String("queries", "", "nameserver to query before operating")
     zone_file_path = flag.String("zone_path", "", "path to write zone files")
+    trans_src := flag.String("transfer_source", "", "source IP for zone transfers")
+    transfer_source = nil
     flag.Usage = func() {
         flag.PrintDefaults()
     }
     flag.Parse()
+
+    if *trans_src != "" {
+        transfer_source =  &net.TCPAddr{IP: net.ParseIP(*trans_src)}
+    }
 
     go serve("tcp")
     go serve("udp")
