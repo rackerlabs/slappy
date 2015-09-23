@@ -85,8 +85,8 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	writer.WriteMsg(message)
 }
 
-func handle_error(message *dns.Msg, writer dns.ResponseWriter, error string) *dns.Msg {
-	switch error {
+func handle_error(message *dns.Msg, writer dns.ResponseWriter, op string) *dns.Msg {
+	switch op {
 	case "REFUSED":
 		message.SetRcode(message, dns.RcodeRefused)
 	case "SERVFAIL":
@@ -109,7 +109,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
-		fmt.Printf("There was a problem with the AXFR")
+		fmt.Printf("There was a problem with the AXFR: %s\n", err)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
@@ -117,13 +117,13 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Printf("There was a problem writing the zone file: %s\n", err)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
 	err = rndc("addzone", zone_name, output_path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Printf("There was a problem executing rndc addzone: %s\n", err)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
@@ -146,7 +146,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
-		fmt.Printf("There was a problem with the AXFR")
+		fmt.Printf("There was a problem with the AXFR: %s\n", err)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
@@ -162,7 +162,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	err = rndc("reload", zone_name, output_path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Printf("There was a problem executing rndc reload: %s\n", err)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
@@ -185,7 +185,7 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	err := rndc("delzone", zone_name, "")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		fmt.Printf("There was a problem executing rndc delzone: %s\n", err)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
@@ -229,14 +229,16 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 	transfer := new(dns.Transfer)
 	if transfer_source != nil {
 		d := net.Dialer{LocalAddr: transfer_source}
-		c, _ := d.Dial("tcp", *master)
+		c, err := d.Dial("tcp", *master)
+		if err != nil {
+			return result, err
+		}
 		dnscon := &dns.Conn{Conn: c}
 		transfer = &dns.Transfer{Conn: dnscon}
 	}
 
 	channel, err := transfer.In(message, *master)
 	if err != nil {
-		fmt.Printf("Error on AXFR %s\n", err.Error())
 		return result, err
 	}
 
