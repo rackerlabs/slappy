@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"github.com/vharitonsky/iniflags"
+	"io"
+	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -20,6 +22,8 @@ var (
 	query_dest      *string
 	zone_file_path  *string
 	transfer_source *net.TCPAddr
+	logfile         *string
+	logger          Log
 )
 
 // Command and Control OPCODE
@@ -46,13 +50,7 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	// address:= strings.Split(full_address, ":")[0]
 	// port:= strings.Split(full_address, ":")[1]
 
-	// if *debug {
-	//     fmt.Println(address + " " + port)
-	//     fmt.Printf("Message.opcode: %d\n", request.Opcode)
-	//     fmt.Println("Question.name: " + question.Name)
-	//     fmt.Printf("Question.Qtype: %d\n", question.Qtype)
-	//     fmt.Printf("Question.Qclass: %d\n", question.Qclass)
-	// }
+	logger.Debug(debug_request(*request, question, writer))
 
 	switch request.Opcode {
 	case dns.OpcodeQuery:
@@ -104,13 +102,14 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	serial := get_serial(zone_name)
 	if serial != 0 {
-		fmt.Printf("zone %s already exists\n", zone_name)
+		logger.Error(fmt.Sprintf("CREATE ERROR %s : zone already exists", zone_name))
 		return message
 	}
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
-		fmt.Printf("There was a problem with the AXFR: %s\n", err)
+		msg := fmt.Sprintf("CREATE ERROR %s : there was a problem with the AXFR: %s", zone_name, err)
+		logger.Error(msg)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
@@ -118,19 +117,19 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
-		fmt.Printf("There was a problem writing the zone file: %s\n", err)
+		msg := fmt.Sprintf("CREATE ERROR %s : there was a problem writing the zone file: %s", zone_name, err)
+		logger.Error(msg)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
 	err = rndc("addzone", zone_name, output_path)
 	if err != nil {
-		fmt.Printf("There was a problem executing rndc addzone: %s\n", err)
+		logger.Error(fmt.Sprintf("CREATE ERROR %s : problem executing rndc addzone: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	if *debug {
-		fmt.Printf("%s created\n", zone_name)
-	}
+	logger.Info(fmt.Sprintf("CREATE SUCCESS %s", zone_name))
+
 	// Send an authoritative answer
 	message.MsgHdr.Authoritative = true
 	return message
@@ -141,35 +140,35 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	serial := get_serial(zone_name)
 	if serial == 0 {
-		fmt.Printf("zone %s doesn't exist\n", zone_name)
+		logger.Error(fmt.Sprintf("UPDATE ERROR %s : zone doesn't exist", zone_name))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
-		fmt.Printf("There was a problem with the AXFR: %s\n", err)
+		logger.Error(fmt.Sprintf("UPDATE ERROR %s : There was a problem with the AXFR: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	// TODO Check the SOA record in 'zone' and if it's <= serial
+	// TODO Check the SOA record for zone_name and if it's <= serial
 	// don't do the rest of this
 	output_path := *zone_file_path + zone_name + "zone"
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		msg := fmt.Sprintf("UPDATE ERROR %s : there was a problem writing the zone file: %s", zone_name, err)
+		logger.Error(msg)
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
 	err = rndc("reload", zone_name, output_path)
 	if err != nil {
-		fmt.Printf("There was a problem executing rndc reload: %s\n", err)
+		logger.Error(fmt.Sprintf("UPDATE ERROR %s : there was a problem executing rndc reload: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	if *debug {
-		fmt.Printf("%s updated\n", zone_name)
-	}
+	logger.Info(fmt.Sprintf("UPDATE SUCCESS %s", zone_name))
+
 	// Send an authoritative answer
 	message.MsgHdr.Authoritative = true
 	return message
@@ -180,19 +179,18 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	serial := get_serial(zone_name)
 	if serial == 0 {
-		fmt.Printf("zone %s doesn't exist\n", zone_name)
+		logger.Error(fmt.Sprintf("DELETE ERROR %s : zone doesn't exist", zone_name))
 		return message
 	}
 
 	err := rndc("delzone", zone_name, "")
 	if err != nil {
-		fmt.Printf("There was a problem executing rndc delzone: %s\n", err)
+		logger.Error(fmt.Sprintf("DELETE ERROR %s : problem executing rndc delzone: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	if *debug {
-		fmt.Printf("%s deleted\n", zone_name)
-	}
+	logger.Info(fmt.Sprintf("DELETE SUCCESS %s", zone_name))
+
 	// Send an authoritative answer
 	message.MsgHdr.Authoritative = true
 	return message
@@ -216,7 +214,6 @@ func rndc(op, zone_name, output_path string) error {
 	}
 
 	if err := exec.Command(cmd, args...).Run(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
 		return err
 	}
 
@@ -292,7 +289,7 @@ func serve(net string) {
 	dns.HandleFunc(".", handle)
 	err := server.ListenAndServe()
 	if err != nil {
-		fmt.Printf("Failed to set up the "+net+"server %s\n", err.Error())
+		panic(fmt.Sprintf("Failed to set up the " + net + "server %s", err.Error()))
 	}
 }
 
@@ -304,18 +301,84 @@ forever:
 	for {
 		select {
 		case s := <-sig:
-			fmt.Println("Signal (%d) received, stopping\n", s)
+			logger.Info(fmt.Sprintf("Signal (%d) received, stopping", s))
 			break forever
 		}
 	}
 }
 
-func main() {
-	fmt.Println("slappy!\n")
+type Log struct {
+	Debuglogger    log.Logger
+	Infologger     log.Logger
+	Warnlogger     log.Logger
+	Errorlogger    log.Logger
+}
 
-	debug = flag.Bool("debug", false, "print extra info")
-	master = flag.String("master", "", "master for axfrs")
-	query_dest = flag.String("queries", "", "nameserver to query before operating")
+func (l *Log) Debug(line string) {
+	if *debug == true {
+		l.Debuglogger.Println(line)
+	}
+}
+
+func (l *Log) Info(line string) {
+	l.Infologger.Println(line)
+}
+
+func (l *Log) Warn(line string) {
+	l.Warnlogger.Println(line)
+}
+
+func (l *Log) Error(line string) {
+	l.Errorlogger.Println(line)
+}
+
+func initLog() {
+	var logwriter io.Writer = os.Stdout
+	if *logfile != "" {
+		f, err := os.OpenFile(*logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+		if err != nil {
+			panic(err)
+		}
+		logwriter = io.MultiWriter(f, os.Stdout)
+	}
+
+	d := log.New(logwriter, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
+	i := log.New(logwriter, "INFO : ", log.Ldate|log.Ltime|log.Lshortfile)
+	c := log.New(logwriter, "WARN : ", log.Ldate|log.Ltime|log.Lshortfile)
+	e := log.New(logwriter, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	logger = Log{Debuglogger: *d, Infologger: *i, Warnlogger: *c, Errorlogger: *e}
+}
+
+func debug_request(request dns.Msg, question dns.Question, writer dns.ResponseWriter) string {
+	addr := writer.RemoteAddr().String() // ipaddr string
+	s := []string{}
+	s = append(s, fmt.Sprintf("Received request from %s ", addr))
+	s = append(s, fmt.Sprintf("for %s ", question.Name))
+	s = append(s, fmt.Sprintf("opcode: %d ", request.Opcode))
+	s = append(s, fmt.Sprintf("rrtype: %d ", question.Qtype))
+	s = append(s, fmt.Sprintf("rrclass: %d ", question.Qclass))
+	return strings.Join(s, "")
+}
+
+func debug_config() {
+	logger.Debug("****************CONFIG****************")
+	logger.Debug(fmt.Sprintf("debug = %t", *debug))
+	logger.Debug(fmt.Sprintf("master = %s", *master))
+	logger.Debug(fmt.Sprintf("query_dest = %s", *query_dest))
+	logger.Debug(fmt.Sprintf("zone_file_path = %s", *zone_file_path))
+	if transfer_source != nil {
+		logger.Debug(fmt.Sprintf("transfer_source = %s", (*transfer_source).String()))
+	}
+	logger.Debug(fmt.Sprintf("logfile = %s", *logfile))
+	logger.Debug("****************CONFIG****************")
+}
+
+func main() {
+	// Load config
+	debug = flag.Bool("debug", false, "enables debug mode")
+	logfile = flag.String("log", "", "file for the log, if empty will log only to stdout")
+	master = flag.String("master", "", "master to zone transfer from")
+	query_dest = flag.String("queries", "", "nameserver to query to grok zone state")
 	zone_file_path = flag.String("zone_path", "", "path to write zone files")
 	trans_src := flag.String("transfer_source", "", "source IP for zone transfers")
 	transfer_source = nil
@@ -330,8 +393,14 @@ func main() {
 		transfer_source = &net.TCPAddr{IP: net.ParseIP(*trans_src)}
 	}
 
+	// Set up logging
+	initLog()
+	debug_config()
+
 	go serve("tcp")
+	logger.Info("slappy started tcp listener on :5358")
 	go serve("udp")
+	logger.Info("slappy started udp listener on :5358")
 
 	listen()
 }

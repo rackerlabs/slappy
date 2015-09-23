@@ -3,3 +3,4 @@ debug = false
 master = 127.0.0.1:5354
 queries = 127.0.0.1:53
 zone_path = ./
+log = slappy.log
