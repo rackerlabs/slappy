@@ -8,6 +8,9 @@ build:
 run:
 	./slappy -debug
 
+fmt:
+	go fmt main.go
+
 dependencies:
 	go get github.com/miekg/dns
 

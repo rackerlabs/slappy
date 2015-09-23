@@ -4,7 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/TimSimmons/dns"
+	"github.com/miekg/dns"
 	"net"
 	"os"
 	"os/exec"
