@@ -13,6 +13,7 @@ fmt:
 
 dependencies:
 	go get github.com/miekg/dns
+	go get github.com/vharitonsky/iniflags
 
 test:
 	./slappy -debug &
