@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/miekg/dns"
+	"github.com/vharitonsky/iniflags"
 	"net"
 	"os"
 	"os/exec"
@@ -14,7 +15,7 @@ import (
 )
 
 var (
-	printf          *bool
+	debug           *bool
 	master          *string
 	query_dest      *string
 	zone_file_path  *string
@@ -45,7 +46,7 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	// address:= strings.Split(full_address, ":")[0]
 	// port:= strings.Split(full_address, ":")[1]
 
-	// if *printf {
+	// if *debug {
 	//     fmt.Println(address + " " + port)
 	//     fmt.Printf("Message.opcode: %d\n", request.Opcode)
 	//     fmt.Println("Question.name: " + question.Name)
@@ -127,7 +128,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	if *printf {
+	if *debug {
 		fmt.Printf("%s created\n", zone_name)
 	}
 	// Send an authoritative answer
@@ -166,7 +167,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	if *printf {
+	if *debug {
 		fmt.Printf("%s updated\n", zone_name)
 	}
 	// Send an authoritative answer
@@ -189,7 +190,7 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	if *printf {
+	if *debug {
 		fmt.Printf("%s deleted\n", zone_name)
 	}
 	// Send an authoritative answer
@@ -312,7 +313,7 @@ forever:
 func main() {
 	fmt.Println("slappy!\n")
 
-	printf = flag.Bool("debug", false, "print extra info")
+	debug = flag.Bool("debug", false, "print extra info")
 	master = flag.String("master", "", "master for axfrs")
 	query_dest = flag.String("queries", "", "nameserver to query before operating")
 	zone_file_path = flag.String("zone_path", "", "path to write zone files")
@@ -321,8 +322,10 @@ func main() {
 	flag.Usage = func() {
 		flag.PrintDefaults()
 	}
-	flag.Parse()
+	// You can specify an .ini file with the -config
+	iniflags.Parse()
 
+	// Parse the transfer_source IP into the proper type
 	if *trans_src != "" {
 		transfer_source = &net.TCPAddr{IP: net.ParseIP(*trans_src)}
 	}
