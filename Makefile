@@ -3,7 +3,7 @@ DOCKER_TAG := slappy-build
 all: dependencies build run
 
 build:
-	go build slappy.go
+	go build -o slappy main.go
 
 run:
 	./slappy -debug
