@@ -25,3 +25,6 @@ test:
 docker-build:
 	docker build -t $(DOCKER_TAG) .
 	docker run -v `pwd`:/build $(DOCKER_TAG) cp slappy /build
+
+clean:
+	rm -rf slappy
