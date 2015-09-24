@@ -18,14 +18,15 @@ import (
 
 var (
 	debug           *bool
+	logfile         *string
+	logger          Log
+	bind_address    *string
+	bind_port       *string
+	all_tcp         *bool
 	master          *string
 	query_dest      *string
 	zone_file_path  *string
 	transfer_source *net.TCPAddr
-	bind_address    *string
-	bind_port       *string
-	logfile         *string
-	logger          Log
 )
 
 // Command and Control OPCODE
@@ -102,7 +103,7 @@ func handle_error(message *dns.Msg, writer dns.ResponseWriter, op string) *dns.M
 func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
 	zone_name := question.Name
 
-	serial := get_serial(zone_name)
+	serial := get_serial(zone_name, *query_dest)
 	if serial != 0 {
 		logger.Error(fmt.Sprintf("CREATE ERROR %s : zone already exists", zone_name))
 		return message
@@ -140,7 +141,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
 	zone_name := question.Name
 
-	serial := get_serial(zone_name)
+	serial := get_serial(zone_name, *query_dest)
 	if serial == 0 {
 		logger.Error(fmt.Sprintf("UPDATE ERROR %s : zone doesn't exist", zone_name))
 		return handle_error(message, writer, "SERVFAIL")
@@ -152,8 +153,14 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	// TODO Check the SOA record for zone_name and if it's <= serial
-	// don't do the rest of this
+	// Check our master for the SOA of this zone
+	master_serial := get_serial(zone_name, *master)
+	if master_serial <= serial {
+		logger.Debug(fmt.Sprintf("UPDATE SUCCESS %s : already have latest version %d", zone_name, serial))
+		// Send an authoritative answer
+		message.MsgHdr.Authoritative = true
+		return message
+	}
 	output_path := *zone_file_path + zone_name + "zone"
 
 	err = write_zonefile(zone_name, zone, output_path)
@@ -169,7 +176,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	logger.Info(fmt.Sprintf("UPDATE SUCCESS %s", zone_name))
+	logger.Info(fmt.Sprintf("UPDATE SUCCESS %s serial %d", zone_name, serial))
 
 	// Send an authoritative answer
 	message.MsgHdr.Authoritative = true
@@ -179,7 +186,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
 	zone_name := question.Name
 
-	serial := get_serial(zone_name)
+	serial := get_serial(zone_name, *query_dest)
 	if serial == 0 {
 		logger.Error(fmt.Sprintf("DELETE ERROR %s : zone doesn't exist", zone_name))
 		return message
@@ -248,10 +255,14 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 	return result, nil
 }
 
-func get_serial(zone_name string) uint32 {
+func get_serial(zone_name, query_dest string) uint32 {
 	m := new(dns.Msg)
 	m.SetQuestion(zone_name, dns.TypeSOA)
-	in, err := dns.Exchange(m, *query_dest)
+	c := new(dns.Client)
+	if *all_tcp == true { c.Net = "tcp" }
+
+	// _ is query time, might be useful laster
+	in, _, err := c.Exchange(m, query_dest)
 	var serial uint32 = 0
 	if err != nil {
 		return serial
@@ -381,13 +392,18 @@ func main() {
 	// Load config
 	debug = flag.Bool("debug", false, "enables debug mode")
 	logfile = flag.String("log", "", "file for the log, if empty will log only to stdout")
+
+	bind_address = flag.String("bind_address", "", "IP to listen on")
+	bind_port = flag.String("bind_port", "5358", "port to listen on")
+	all_tcp = flag.Bool("all_tcp", true, "sends all queries over tcp")
+
 	master = flag.String("master", "", "master to zone transfer from")
 	query_dest = flag.String("queries", "", "nameserver to query to grok zone state")
 	zone_file_path = flag.String("zone_path", "", "path to write zone files")
+
 	trans_src := flag.String("transfer_source", "", "source IP for zone transfers")
-	bind_address := flag.String("bind_address", "", "IP to listen on")
-	bind_port := flag.String("bind_port", "5358", "port to listen on")
 	transfer_source = nil
+
 	flag.Usage = func() {
 		flag.PrintDefaults()
 	}
