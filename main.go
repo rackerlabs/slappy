@@ -22,6 +22,8 @@ var (
 	query_dest      *string
 	zone_file_path  *string
 	transfer_source *net.TCPAddr
+	bind_address    *string
+	bind_port       *string
 	logfile         *string
 	logger          Log
 )
@@ -284,9 +286,11 @@ func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
 	return nil
 }
 
-func serve(net string) {
-	server := &dns.Server{Addr: ":5358", Net: net}
+func serve(net, ip, port string) {
+	bind := fmt.Sprintf("%s:%s", ip, port)
+	server := &dns.Server{Addr: bind, Net: net}
 	dns.HandleFunc(".", handle)
+	logger.Info(fmt.Sprintf("slappy starting %s listener on %s", net, bind))
 	err := server.ListenAndServe()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to set up the " + net + "server %s", err.Error()))
@@ -381,6 +385,8 @@ func main() {
 	query_dest = flag.String("queries", "", "nameserver to query to grok zone state")
 	zone_file_path = flag.String("zone_path", "", "path to write zone files")
 	trans_src := flag.String("transfer_source", "", "source IP for zone transfers")
+	bind_address := flag.String("bind_address", "", "IP to listen on")
+	bind_port := flag.String("bind_port", "5358", "port to listen on")
 	transfer_source = nil
 	flag.Usage = func() {
 		flag.PrintDefaults()
@@ -397,10 +403,8 @@ func main() {
 	initLog()
 	debug_config()
 
-	go serve("tcp")
-	logger.Info("slappy started tcp listener on :5358")
-	go serve("udp")
-	logger.Info("slappy started udp listener on :5358")
+	go serve("tcp", *bind_address, *bind_port)
+	go serve("udp", *bind_address, *bind_port)
 
 	listen()
 }
