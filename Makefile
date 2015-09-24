@@ -12,8 +12,8 @@ fmt:
 	go fmt main.go
 
 dependencies:
-	go get github.com/miekg/dns
-	go get github.com/vharitonsky/iniflags
+	go get github.com/rackerlabs/dns
+	go get github.com/rackerlabs/iniflags
 
 test:
 	./slappy -debug &
