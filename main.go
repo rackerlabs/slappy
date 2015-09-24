@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 )
 
 var (
@@ -26,6 +27,7 @@ var (
 	master          *string
 	query_dest      *string
 	zone_file_path  *string
+	query_timeout   time.Duration
 	transfer_source *net.TCPAddr
 	allow_notify    []string
 )
@@ -244,7 +246,7 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 	result := []dns.RR{}
 	message := new(dns.Msg)
 	message.SetAxfr(zone_name)
-	transfer := new(dns.Transfer)
+	transfer := &dns.Transfer{DialTimeout: query_timeout, ReadTimeout: query_timeout}
 	if transfer_source != nil {
 		d := net.Dialer{LocalAddr: transfer_source}
 		c, err := d.Dial("tcp", *master)
@@ -252,7 +254,7 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 			return result, err
 		}
 		dnscon := &dns.Conn{Conn: c}
-		transfer = &dns.Transfer{Conn: dnscon}
+		transfer = &dns.Transfer{Conn: dnscon, DialTimeout: query_timeout, ReadTimeout: query_timeout}
 	}
 
 	channel, err := transfer.In(message, *master)
@@ -269,7 +271,7 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 func get_serial(zone_name, query_dest string) uint32 {
 	m := new(dns.Msg)
 	m.SetQuestion(zone_name, dns.TypeSOA)
-	c := new(dns.Client)
+	c := &dns.Client{DialTimeout: query_timeout, ReadTimeout: query_timeout}
 	if *all_tcp == true { c.Net = "tcp" }
 
 	// _ is query time, might be useful later
@@ -409,6 +411,7 @@ func debug_config() {
 	logger.Debug(fmt.Sprintf("master = %s", *master))
 	logger.Debug(fmt.Sprintf("query_dest = %s", *query_dest))
 	logger.Debug(fmt.Sprintf("zone_file_path = %s", *zone_file_path))
+	logger.Debug(fmt.Sprintf("query_timeout = %s", query_timeout))
 	if transfer_source != nil {
 		logger.Debug(fmt.Sprintf("transfer_source = %s", (*transfer_source).String()))
 	}
@@ -428,6 +431,7 @@ func main() {
 	master = flag.String("master", "", "master to zone transfer from")
 	query_dest = flag.String("queries", "", "nameserver to query to grok zone state")
 	zone_file_path = flag.String("zone_path", "", "path to write zone files")
+	query_timeout_raw := flag.Int("query_timeout", 10, "seconds before output dns queries timeout from slappy")
 
 	transfer_source_raw := flag.String("transfer_source", "", "source IP for zone transfers")
 	transfer_source = nil
@@ -449,6 +453,7 @@ func main() {
 			allow_notify = append(allow_notify, strings.TrimSpace(ip))
 		}
 	}
+	query_timeout = time.Duration(*query_timeout_raw) * time.Second
 
 	// Set up logging
 	initLog()
