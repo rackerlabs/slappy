@@ -27,6 +27,7 @@ var (
 	query_dest      *string
 	zone_file_path  *string
 	transfer_source *net.TCPAddr
+	allow_notify    []string
 )
 
 // Command and Control OPCODE
@@ -48,10 +49,16 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	message.SetReply(request)
 	message.SetRcode(message, dns.RcodeSuccess)
 
-	// TODO: allow_notify
-	// full_address := writer.RemoteAddr().String()
-	// address:= strings.Split(full_address, ":")[0]
-	// port:= strings.Split(full_address, ":")[1]
+	full_address := writer.RemoteAddr().String()
+	address:= strings.Split(full_address, ":")[0]
+
+	if allowed(address) != true {
+		msg := fmt.Sprintf("ERROR %s : %s not allowed to talk to slappy", question.Name, address)
+		logger.Error(msg)
+		message = handle_error(message, writer, "REFUSED")
+		respond(message, question, *request, writer)
+		return
+	}
 
 	logger.Debug(debug_request(*request, question, writer))
 
@@ -77,6 +84,10 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 		message = handle_error(message, writer, "REFUSED")
 	}
 
+	respond(message, question, *request, writer)
+}
+
+func respond(message *dns.Msg, question dns.Question, request dns.Msg, writer dns.ResponseWriter) {
 	// Apparently this dns library takes the question out on
 	// certain RCodes, like REFUSED, which is not right. So we reinsert it.
 	message.Question[0].Name = question.Name
@@ -297,6 +308,18 @@ func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
 	return nil
 }
 
+func allowed(notifier string) bool {
+	if len(allow_notify) == 0 {
+		return true
+	}
+	for _, ip := range allow_notify {
+		if notifier == ip {
+			return true
+		}
+	}
+	return false
+}
+
 func serve(net, ip, port string) {
 	bind := fmt.Sprintf("%s:%s", ip, port)
 	server := &dns.Server{Addr: bind, Net: net}
@@ -384,6 +407,7 @@ func debug_config() {
 	if transfer_source != nil {
 		logger.Debug(fmt.Sprintf("transfer_source = %s", (*transfer_source).String()))
 	}
+	logger.Debug(fmt.Sprintf("allow_notify = %s", allow_notify))
 	logger.Debug(fmt.Sprintf("logfile = %s", *logfile))
 	logger.Debug("****************CONFIG****************")
 }
@@ -401,8 +425,10 @@ func main() {
 	query_dest = flag.String("queries", "", "nameserver to query to grok zone state")
 	zone_file_path = flag.String("zone_path", "", "path to write zone files")
 
-	trans_src := flag.String("transfer_source", "", "source IP for zone transfers")
+	transfer_source_raw := flag.String("transfer_source", "", "source IP for zone transfers")
 	transfer_source = nil
+	allow_notify_raw := flag.String("allow_notify", "", "comma-separated list of IPs allowed to query slappy")
+	allow_notify = []string{}
 
 	flag.Usage = func() {
 		flag.PrintDefaults()
@@ -411,8 +437,13 @@ func main() {
 	iniflags.Parse()
 
 	// Parse the transfer_source IP into the proper type
-	if *trans_src != "" {
-		transfer_source = &net.TCPAddr{IP: net.ParseIP(*trans_src)}
+	if *transfer_source_raw != "" {
+		transfer_source = &net.TCPAddr{IP: net.ParseIP(*transfer_source_raw)}
+	}
+	if *allow_notify_raw != "" {
+		for _, ip := range strings.Split((*allow_notify_raw), ",") {
+			allow_notify = append(allow_notify, strings.TrimSpace(ip))
+		}
 	}
 
 	// Set up logging
