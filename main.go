@@ -63,8 +63,6 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	logger.Debug(debug_request(*request, question, writer))
 
 	switch request.Opcode {
-	case dns.OpcodeQuery:
-		message = handle_error(message, writer, "REFUSED")
 	case dns.OpcodeNotify:
 		message = handle_notify(question, message, writer)
 	case CC:
@@ -78,9 +76,11 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 				message = handle_error(message, writer, "REFUSED")
 			}
 		} else {
+			logger.Debug(fmt.Sprintf("ERROR %s : unsupported rrclass %d", question.Name, question.Qclass))
 			message = handle_error(message, writer, "REFUSED")
 		}
 	default:
+		logger.Debug(fmt.Sprintf("ERROR %s : unsupported opcode %d", question.Name, request.Opcode))
 		message = handle_error(message, writer, "REFUSED")
 	}
 
@@ -272,7 +272,7 @@ func get_serial(zone_name, query_dest string) uint32 {
 	c := new(dns.Client)
 	if *all_tcp == true { c.Net = "tcp" }
 
-	// _ is query time, might be useful laster
+	// _ is query time, might be useful later
 	in, _, err := c.Exchange(m, query_dest)
 	var serial uint32 = 0
 	if err != nil {
@@ -390,6 +390,7 @@ func initLog() {
 func debug_request(request dns.Msg, question dns.Question, writer dns.ResponseWriter) string {
 	addr := writer.RemoteAddr().String() // ipaddr string
 	s := []string{}
+	// TODO: put tcp/udp in here
 	s = append(s, fmt.Sprintf("Received request from %s ", addr))
 	s = append(s, fmt.Sprintf("for %s ", question.Name))
 	s = append(s, fmt.Sprintf("opcode: %d ", request.Opcode))
@@ -401,6 +402,10 @@ func debug_request(request dns.Msg, question dns.Question, writer dns.ResponseWr
 func debug_config() {
 	logger.Debug("****************CONFIG****************")
 	logger.Debug(fmt.Sprintf("debug = %t", *debug))
+	logger.Debug(fmt.Sprintf("log = %s", *logfile))
+	logger.Debug(fmt.Sprintf("bind_address = %s", *bind_address))
+	logger.Debug(fmt.Sprintf("bind_port = %s", *bind_port))
+	logger.Debug(fmt.Sprintf("all_tcp = %t", *all_tcp))
 	logger.Debug(fmt.Sprintf("master = %s", *master))
 	logger.Debug(fmt.Sprintf("query_dest = %s", *query_dest))
 	logger.Debug(fmt.Sprintf("zone_file_path = %s", *zone_file_path))
@@ -408,7 +413,6 @@ func debug_config() {
 		logger.Debug(fmt.Sprintf("transfer_source = %s", (*transfer_source).String()))
 	}
 	logger.Debug(fmt.Sprintf("allow_notify = %s", allow_notify))
-	logger.Debug(fmt.Sprintf("logfile = %s", *logfile))
 	logger.Debug("****************CONFIG****************")
 }
 
