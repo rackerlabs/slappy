@@ -293,7 +293,7 @@ func serve(net, ip, port string) {
 	logger.Info(fmt.Sprintf("slappy starting %s listener on %s", net, bind))
 	err := server.ListenAndServe()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to set up the " + net + "server %s", err.Error()))
+		panic(fmt.Sprintf("Failed to set up the "+net+"server %s", err.Error()))
 	}
 }
 
@@ -312,10 +312,10 @@ forever:
 }
 
 type Log struct {
-	Debuglogger    log.Logger
-	Infologger     log.Logger
-	Warnlogger     log.Logger
-	Errorlogger    log.Logger
+	Debuglogger log.Logger
+	Infologger  log.Logger
+	Warnlogger  log.Logger
+	Errorlogger log.Logger
 }
 
 func (l *Log) Debug(line string) {
