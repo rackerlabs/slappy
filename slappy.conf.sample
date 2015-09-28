@@ -1,10 +1,28 @@
 [slappy]
+#################
+# General
+#################
 debug = false
-master = 127.0.0.1:5354
-queries = 127.0.0.1:53
-zone_path = ./
 log = slappy.log
+
+#################
+# Network Options
+#################
 bind_address = 127.0.0.1
 bind_port = 5358
 all_tcp = true
+
+#################
+# DNS Options
+#################
+master = 127.0.0.1:5354
+queries = 127.0.0.1:53
+zone_path = ./
 allow_notify = ""
+
+#################
+# Limit RNDC
+#################
+limit_rndc = false
+rndc_limit = 50
+rndc_timeout = 25

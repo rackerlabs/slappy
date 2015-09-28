@@ -30,6 +30,10 @@ var (
 	query_timeout   time.Duration
 	transfer_source *net.TCPAddr
 	allow_notify    []string
+	limit_rndc      *bool
+	rndc_timeout    time.Duration
+	rndc_limit       *int
+	rndc_counter    chan string
 )
 
 // Command and Control OPCODE
@@ -97,6 +101,9 @@ func respond(message *dns.Msg, question dns.Question, request dns.Msg, writer dn
 	message.Question[0].Qclass = question.Qclass
 	message.MsgHdr.Opcode = request.Opcode
 
+	// Send an authoritative answer
+	message.MsgHdr.Authoritative = true
+
 	writer.WriteMsg(message)
 }
 
@@ -118,7 +125,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	serial := get_serial(zone_name, *query_dest)
 	if serial != 0 {
-		logger.Error(fmt.Sprintf("CREATE ERROR %s : zone already exists", zone_name))
+		logger.Info(fmt.Sprintf("CREATE SUCCESS %s : zone already exists", zone_name))
 		return message
 	}
 
@@ -146,8 +153,6 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	logger.Info(fmt.Sprintf("CREATE SUCCESS %s", zone_name))
 
-	// Send an authoritative answer
-	message.MsgHdr.Authoritative = true
 	return message
 }
 
@@ -160,20 +165,19 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
+	// Check our master for the SOA of this zone
+	master_serial := get_serial(zone_name, *master)
+	if master_serial <= serial {
+		logger.Info(fmt.Sprintf("UPDATE SUCCESS %s : already have latest version %d", zone_name, serial))
+		return message
+	}
+
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
 		logger.Error(fmt.Sprintf("UPDATE ERROR %s : There was a problem with the AXFR: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	// Check our master for the SOA of this zone
-	master_serial := get_serial(zone_name, *master)
-	if master_serial <= serial {
-		logger.Debug(fmt.Sprintf("UPDATE SUCCESS %s : already have latest version %d", zone_name, serial))
-		// Send an authoritative answer
-		message.MsgHdr.Authoritative = true
-		return message
-	}
 	output_path := *zone_file_path + zone_name + "zone"
 
 	err = write_zonefile(zone_name, zone, output_path)
@@ -191,8 +195,6 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	logger.Info(fmt.Sprintf("UPDATE SUCCESS %s serial %d", zone_name, serial))
 
-	// Send an authoritative answer
-	message.MsgHdr.Authoritative = true
 	return message
 }
 
@@ -201,7 +203,7 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	serial := get_serial(zone_name, *query_dest)
 	if serial == 0 {
-		logger.Error(fmt.Sprintf("DELETE ERROR %s : zone doesn't exist", zone_name))
+		logger.Info(fmt.Sprintf("DELETE SUCCESS %s : zone doesn't exist", zone_name))
 		return message
 	}
 
@@ -211,10 +213,10 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
+	// TODO: Delete the zonefile maybe?
+
 	logger.Info(fmt.Sprintf("DELETE SUCCESS %s", zone_name))
 
-	// Send an authoritative answer
-	message.MsgHdr.Authoritative = true
 	return message
 }
 
@@ -222,6 +224,7 @@ func rndc(op, zone_name, output_path string) error {
 	cmd := "rndc"
 	zone_clause := ""
 	args := []string{}
+	var err error;
 
 	switch op {
 	case "addzone":
@@ -235,11 +238,73 @@ func rndc(op, zone_name, output_path string) error {
 		return errors.New("Invalid RNDC command")
 	}
 
-	if err := exec.Command(cmd, args...).Run(); err != nil {
+	if *limit_rndc == false {
+		if e := exec.Command(cmd, args...).Run(); e != nil {
+			return err
+		}
+		return nil
+	} else {
+		rndc_string := op+" "+strings.Join(args, " ")
+
+		// finished will get filled if the rndc call finishes before the timeout
+		finished := make(chan string, 1)
+		// if finished doesn't get filled, interrupt will send an interrupt message
+		// to stop the rndc call from executing
+		interrupt := make(chan string, 1)
+		// timeout is the amount of time we're going to wait synchronously in a
+		// goroutine handling a query. We'd like to wait until the status of the
+		// rndc comes back, so we can tell Designate. But if it goes too long, we will
+		// just return error so Designate knows to try again
+
+		// spawn a new Goroutine, this immediately jumps down to the select statement after the
+		// function call and starts waiting on the timeout, or the ack that the call finished
+		go func() {
+			// Goroutine will wait until it can write to the 'rndc_counter'
+			rndc_counter <- "rndc"
+			// If it took longer than the timeout to write, we will have a message waiting in interrupt
+			select {
+			case _ = <-interrupt:
+				// If there's an interrupt, we ack rndc_counter and break out without execing our rndc call
+				go func() {
+					<-rndc_counter
+					// do a debug log to say timeout
+					logger.Error("ERROR RNDC: "+rndc_string+" wasn't executed before timeout")
+				}()
+				// We don't modify err, so Designate will realize we lied when it polls
+				return
+			default:
+				// If there is no interrupt, we continue to our rndc call
+			}
+
+			if e := exec.Command(cmd, args...).Run(); e != nil {
+				err = e
+			}
+
+			go func() {
+				<-rndc_counter
+				// We ack rndc_counter once so that another query can have the lock
+				logger.Debug("RNDC SUCCESS: "+rndc_string+" completed")
+			}()
+			// Since we've finished, we light up the finished channel, so the main function knows
+			// we've finished before the timeout
+			finished <- "done"
+		}()
+
+		select {
+		case _ = <-finished:
+			// We finished before the timeout
+		case <-time.After(rndc_timeout):
+			// We have timed out, throw away the rndc call by interupting the goroutine above
+			// Spawn a GoRoutine for the interrupt so that we can return this function
+			// There's a small amount of time between realizing the timeout, and before this
+			// goroutine does it's thing. It's possible that the rndc call might execute
+			// This is ok, because when Designate goes to fix up the change, slappy will promptly
+			// return that this is all done
+			go func() { interrupt <- "interrupt" }()
+		}
+
 		return err
 	}
-
-	return nil
 }
 
 func do_axfr(zone_name string) ([]dns.RR, error) {
@@ -412,6 +477,9 @@ func debug_config() {
 	logger.Debug(fmt.Sprintf("query_dest = %s", *query_dest))
 	logger.Debug(fmt.Sprintf("zone_file_path = %s", *zone_file_path))
 	logger.Debug(fmt.Sprintf("query_timeout = %s", query_timeout))
+	logger.Debug(fmt.Sprintf("limit_rndc = %t", *limit_rndc))
+	logger.Debug(fmt.Sprintf("rndc_timeout = %s", rndc_timeout))
+	logger.Debug(fmt.Sprintf("rndc_limit = %d", *rndc_limit))
 	if transfer_source != nil {
 		logger.Debug(fmt.Sprintf("transfer_source = %s", (*transfer_source).String()))
 	}
@@ -438,6 +506,10 @@ func main() {
 	allow_notify_raw := flag.String("allow_notify", "", "comma-separated list of IPs allowed to query slappy")
 	allow_notify = []string{}
 
+	limit_rndc = flag.Bool("limit_rndc", false, "enables limiting concurrent rndc calls with rndc_timeout, rndc_limit")
+	rndc_timeout_raw := flag.Int("rndc_timeout", 25, "seconds before waiting rndc call will abort")
+	rndc_limit = flag.Int("rndc_limit", 50, "number of concurrent rndc calls allowed if limit_rndc=true")
+
 	flag.Usage = func() {
 		flag.PrintDefaults()
 	}
@@ -454,6 +526,10 @@ func main() {
 		}
 	}
 	query_timeout = time.Duration(*query_timeout_raw) * time.Second
+	rndc_timeout = time.Duration(*rndc_timeout_raw) * time.Second
+
+	// Set up rndc rate limiter
+	if *limit_rndc == true { rndc_counter = make(chan string, *rndc_limit) }
 
 	// Set up logging
 	initLog()
