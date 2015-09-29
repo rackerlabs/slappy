@@ -167,6 +167,10 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	// Check our master for the SOA of this zone
 	master_serial := get_serial(zone_name, *master)
+	if master_serial == 0 {
+		logger.Error(fmt.Sprintf("UPDATE ERROR %s : problem with master SOA query", zone_name))
+		return handle_error(message, writer, "SERVFAIL")
+	}
 	if master_serial <= serial {
 		logger.Info(fmt.Sprintf("UPDATE SUCCESS %s : already have latest version %d", zone_name, serial))
 		return message
@@ -316,6 +320,7 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 		d := net.Dialer{LocalAddr: transfer_source}
 		c, err := d.Dial("tcp", *master)
 		if err != nil {
+			logger.Debug("AXFR ERROR : problem dialing master")
 			return result, err
 		}
 		dnscon := &dns.Conn{Conn: c}
@@ -334,17 +339,43 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 }
 
 func get_serial(zone_name, query_dest string) uint32 {
+	var serial uint32 = 0
+	var in *dns.Msg;
+
 	m := new(dns.Msg)
 	m.SetQuestion(zone_name, dns.TypeSOA)
-	c := &dns.Client{DialTimeout: query_timeout, ReadTimeout: query_timeout}
-	if *all_tcp == true { c.Net = "tcp" }
 
-	// _ is query time, might be useful later
-	in, _, err := c.Exchange(m, query_dest)
-	var serial uint32 = 0
-	if err != nil {
-		return serial
+	if transfer_source != nil {
+		d := net.Dialer{LocalAddr: transfer_source}
+		c, err := d.Dial("tcp", query_dest)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("QUERY ERROR : problem dialing query_dest %s", query_dest))
+			return 0
+		}
+		co := &dns.Conn{Conn: c}
+		co.WriteMsg(m)
+		in, err = co.ReadMsg()
+		if err != nil {
+			logger.Debug(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
+			return 0
+		}
+		co.Close()
+	} else {
+		c := &dns.Client{DialTimeout: query_timeout, ReadTimeout: query_timeout}
+		if *all_tcp == true { c.Net = "tcp" }
+		// _ is query time, might be useful later
+		var err error;
+		in, _, err = c.Exchange(m, query_dest)
+		if err != nil {
+			logger.Debug(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
+			return serial
+		}
 	}
+	return serial_query_parse(in)
+}
+
+func serial_query_parse(in *dns.Msg) uint32 {
+	var serial uint32 = 0
 	if in.Rcode != dns.RcodeSuccess {
 		return serial
 	}
