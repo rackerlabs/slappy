@@ -197,7 +197,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	logger.Info(fmt.Sprintf("UPDATE SUCCESS %s serial %d", zone_name, serial))
+	logger.Info(fmt.Sprintf("UPDATE SUCCESS %s serial %d", zone_name, master_serial))
 
 	return message
 }
