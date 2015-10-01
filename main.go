@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"github.com/rackerlabs/dns"
 	"github.com/rackerlabs/iniflags"
-	"io"
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -16,12 +14,14 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/rackerlabs/slappy/log"
 )
 
 var (
 	debug           *bool
 	logfile         *string
-	logger          Log
+	logger          log.Log
 	bind_address    *string
 	bind_port       *string
 	all_tcp         *bool
@@ -448,48 +448,6 @@ forever:
 	}
 }
 
-type Log struct {
-	Debuglogger log.Logger
-	Infologger  log.Logger
-	Warnlogger  log.Logger
-	Errorlogger log.Logger
-}
-
-func (l *Log) Debug(line string) {
-	if *debug == true {
-		l.Debuglogger.Println(line)
-	}
-}
-
-func (l *Log) Info(line string) {
-	l.Infologger.Println(line)
-}
-
-func (l *Log) Warn(line string) {
-	l.Warnlogger.Println(line)
-}
-
-func (l *Log) Error(line string) {
-	l.Errorlogger.Println(line)
-}
-
-func initLog() {
-	var logwriter io.Writer = os.Stdout
-	if *logfile != "" {
-		f, err := os.OpenFile(*logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
-		if err != nil {
-			panic(err)
-		}
-		logwriter = io.MultiWriter(f, os.Stdout)
-	}
-
-	d := log.New(logwriter, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-	i := log.New(logwriter, "INFO : ", log.Ldate|log.Ltime|log.Lshortfile)
-	c := log.New(logwriter, "WARN : ", log.Ldate|log.Ltime|log.Lshortfile)
-	e := log.New(logwriter, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
-	logger = Log{Debuglogger: *d, Infologger: *i, Warnlogger: *c, Errorlogger: *e}
-}
-
 func debug_request(request dns.Msg, question dns.Question, writer dns.ResponseWriter) string {
 	addr := writer.RemoteAddr().String() // ipaddr string
 	s := []string{}
@@ -568,7 +526,7 @@ func main() {
 	if *limit_rndc == true { rndc_counter = make(chan string, *rndc_limit) }
 
 	// Set up logging
-	initLog()
+	logger = log.InitLog(*logfile, *debug)
 	debug_config()
 
 	go serve("tcp", *bind_address, *bind_port)
