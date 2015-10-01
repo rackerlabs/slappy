@@ -42,9 +42,9 @@ func InitLog(logfile string, debug bool) Log {
 		logwriter = io.MultiWriter(f, os.Stdout)
 	}
 
-	d := log.New(logwriter, "DEBUG: ", log.Ldate|log.Ltime|log.Lshortfile)
-	i := log.New(logwriter, "INFO : ", log.Ldate|log.Ltime|log.Lshortfile)
-	c := log.New(logwriter, "WARN : ", log.Ldate|log.Ltime|log.Lshortfile)
-	e := log.New(logwriter, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
+	d := log.New(logwriter, "DEBUG: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
+	i := log.New(logwriter, "INFO : ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
+	c := log.New(logwriter, "WARN : ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
+	e := log.New(logwriter, "ERROR: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
 	return Log{debug: debug, Debuglogger: *d, Infologger: *i, Warnlogger: *c, Errorlogger: *e}
 }
