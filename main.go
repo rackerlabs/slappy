@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -430,15 +431,19 @@ func serve(net, ip, port string) {
 }
 
 func listen() {
-	sig := make(chan os.Signal)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	siq_quit := make(chan os.Signal)
+	signal.Notify(siq_quit, syscall.SIGINT, syscall.SIGTERM)
+	sig_stat := make(chan os.Signal)
+	signal.Notify(sig_stat, syscall.SIGUSR1)
 
 forever:
 	for {
 		select {
-		case s := <-sig:
+		case s := <-siq_quit:
 			logger.Info(fmt.Sprintf("Signal (%d) received, stopping", s))
 			break forever
+		case _ = <-sig_stat:
+			logger.Info(fmt.Sprintf("Goroutines: %d", runtime.NumGoroutine()))
 		}
 	}
 }
