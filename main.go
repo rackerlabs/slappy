@@ -118,6 +118,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
+		if err == nil { err = errors.New("0 records in AXFR, probably REFUSED") }
 		msg := fmt.Sprintf("CREATE ERROR %s : there was a problem with the AXFR: %s", zone_name, err)
 		logger.Error(msg)
 		return handle_error(message, writer, "SERVFAIL")
@@ -167,6 +168,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
+		if err == nil { err = errors.New("0 records in AXFR, probably REFUSED") }
 		logger.Error(fmt.Sprintf("UPDATE ERROR %s : There was a problem with the AXFR: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
