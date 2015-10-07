@@ -124,7 +124,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	output_path := conf.Zone_file_path + zone_name + "zone"
+	output_path := conf.Zone_file_path + zone_name
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
