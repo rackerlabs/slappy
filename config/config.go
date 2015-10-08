@@ -51,7 +51,7 @@ func Setup_config() {
 
 	master := flag.String("master", "", "master to zone transfer from")
 	query_dest := flag.String("queries", "", "nameserver to query to grok zone state")
-	zone_file_path := flag.String("zone_path", "", "path to write zone files")
+	zone_file_path_raw := flag.String("zone_path", "", "path to write zone files")
 	query_timeout_raw := flag.Int("query_timeout", 10, "seconds before output dns queries timeout from slappy")
 
 	transfer_source_raw := flag.String("transfer_source", "", "source IP for zone transfers")
@@ -81,6 +81,11 @@ func Setup_config() {
 	query_timeout := time.Duration(*query_timeout_raw) * time.Second
 	rndc_timeout := time.Duration(*rndc_timeout_raw) * time.Second
 
+	zone_file_path := *zone_file_path_raw
+	if !strings.HasSuffix(zone_file_path, "/") {
+		zone_file_path = zone_file_path + "/"
+	}
+
 	// Set up rndc rate limiter
 	if *limit_rndc == true { rndc_counter = make(chan string, *rndc_limit) }
 
@@ -92,7 +97,7 @@ func Setup_config() {
 		All_tcp: *all_tcp,
 		Master: *master,
 		Query_dest: *query_dest,
-		Zone_file_path: *zone_file_path,
+		Zone_file_path: zone_file_path,
 		Query_timeout: query_timeout,
 		Transfer_source: transfer_source,
 		Allow_notify: allow_notify,
