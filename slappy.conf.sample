@@ -26,3 +26,9 @@ allow_notify = ""
 limit_rndc = false
 rndc_limit = 50
 rndc_timeout = 25
+
+#################
+# Stats/Monitoring
+#################
+status_file = ""
+status_interval = 60
