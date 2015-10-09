@@ -477,13 +477,14 @@ func main() {
 	conf := config.Conf()
 
 	// Set up logging
-	logger = log.InitLog(conf.Logfile, conf.Debug)
+	log.InitLog(conf.Logfile, conf.Debug)
+	logger = log.Logger()
 
 	// Debug config
-	conf.Print(logger)
+	conf.Print()
 
 	// Init Stats
-	go stats.Status_file(logger)
+	go stats.Status_file()
 
 	go serve("tcp", conf.Bind_address, conf.Bind_port)
 	go serve("udp", conf.Bind_address, conf.Bind_port)

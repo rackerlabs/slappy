@@ -9,8 +9,9 @@ import (
     "github.com/rackerlabs/slappy/log"
 )
 
-func Status_file(logger log.Log) {
+func Status_file() {
     conf := config.Conf()
+    logger := log.Logger()
 
     filepath := conf.Status_file
     if filepath == "" {

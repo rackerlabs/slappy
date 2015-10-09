@@ -116,7 +116,8 @@ func Setup_config() {
 	}
 }
 
-func (c *Config) Print(logger log.Log) {
+func (c *Config) Print() {
+	logger := log.Logger()
 	logger.Debug("****************CONFIG****************")
 	logger.Debug(fmt.Sprintf("debug = %t", c.Debug))
 	logger.Debug(fmt.Sprintf("log = %s", c.Logfile))
