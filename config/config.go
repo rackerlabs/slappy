@@ -31,6 +31,8 @@ type Config struct {
 	Rndc_timeout    time.Duration
 	Rndc_limit      int
 	Rndc_counter    chan string
+	Status_file     string
+	Status_interval time.Duration
 }
 
 // These vars are necessary because the actual values in the `flag.x` don't
@@ -63,6 +65,9 @@ func Setup_config() {
 	rndc_timeout_raw := flag.Int("rndc_timeout", 25, "seconds before waiting rndc call will abort")
 	rndc_limit := flag.Int("rndc_limit", 50, "number of concurrent rndc calls allowed if limit_rndc=true")
 
+	status_file := flag.String("status_file", "", "path to write a status file, empty means no status file")
+	status_interval_raw := flag.Int("status_interval", 60, "seconds to wait between status file writes")
+
 	flag.Usage = func() {
 		flag.PrintDefaults()
 	}
@@ -80,6 +85,7 @@ func Setup_config() {
 	}
 	query_timeout := time.Duration(*query_timeout_raw) * time.Second
 	rndc_timeout := time.Duration(*rndc_timeout_raw) * time.Second
+	status_interval := time.Duration(*status_interval_raw) * time.Second
 
 	zone_file_path := *zone_file_path_raw
 	if !strings.HasSuffix(zone_file_path, "/") {
@@ -105,6 +111,8 @@ func Setup_config() {
 		Rndc_timeout: rndc_timeout,
 		Rndc_limit: *rndc_limit,
 		Rndc_counter: rndc_counter,
+		Status_file: *status_file,
+		Status_interval: status_interval,
 	}
 }
 
@@ -122,6 +130,8 @@ func (c *Config) Print(logger log.Log) {
 	logger.Debug(fmt.Sprintf("limit_rndc = %t", c.Limit_rndc))
 	logger.Debug(fmt.Sprintf("rndc_timeout = %s", c.Rndc_timeout))
 	logger.Debug(fmt.Sprintf("rndc_limit = %d", c.Rndc_limit))
+	logger.Debug(fmt.Sprintf("status_file = %s", c.Status_file))
+	logger.Debug(fmt.Sprintf("status_interval = %d", c.Status_interval))
 	if c.Transfer_source != nil {
 		logger.Debug(fmt.Sprintf("transfer_source = %s", (c.Transfer_source).String()))
 	}

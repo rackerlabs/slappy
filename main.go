@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rackerlabs/dns"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/rackerlabs/slappy/config"
 	"github.com/rackerlabs/slappy/log"
+	"github.com/rackerlabs/slappy/stats"
 )
 
 var (
@@ -390,17 +392,10 @@ func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
 	}
 	zonefile := strings.Join(lines, "")
 
-	f, err := os.Create(output_path)
+	err := ioutil.WriteFile(output_path, []byte(zonefile), 0755)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
-	_, err = f.WriteString(zonefile)
-	if err != nil {
-		return err
-	}
-	f.Sync()
 	return nil
 }
 
@@ -470,6 +465,9 @@ func main() {
 
 	// Debug config
 	conf.Print(logger)
+
+	// Init Stats
+	go stats.Status_file(logger)
 
 	go serve("tcp", conf.Bind_address, conf.Bind_port)
 	go serve("udp", conf.Bind_address, conf.Bind_port)
