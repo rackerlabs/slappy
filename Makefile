@@ -12,14 +12,14 @@ help:
 	@echo "docker-build   - builds slappy via docker"
 	@echo ""
 
-build:
+build: fmt
 	go build -o slappy main.go
 
 run:
 	./slappy -debug
 
 fmt:
-	go fmt main.go
+	find . -name '*.go' -exec go fmt '{}' \;
 
 dependencies:
 	go get github.com/rackerlabs/dns

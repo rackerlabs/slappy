@@ -6,10 +6,10 @@ import (
 	"os"
 )
 
-var logger Log;
+var logger Log
 
 type Log struct {
-	debug  		bool
+	debug       bool
 	Debuglogger log.Logger
 	Infologger  log.Logger
 	Warnlogger  log.Logger
