@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rackerlabs/dns"
+	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
@@ -391,17 +392,10 @@ func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
 	}
 	zonefile := strings.Join(lines, "")
 
-	f, err := os.Create(output_path)
+	err := ioutil.WriteFile(output_path, []byte(zonefile), 0755)
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-
-	_, err = f.WriteString(zonefile)
-	if err != nil {
-		return err
-	}
-	f.Sync()
 	return nil
 }
 
