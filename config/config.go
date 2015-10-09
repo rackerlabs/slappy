@@ -9,10 +9,9 @@ import (
 	"time"
 
 	"github.com/rackerlabs/slappy/log"
-
 )
 
-var conf Config;
+var conf Config
 
 type Config struct {
 	Debug           bool
@@ -93,30 +92,33 @@ func Setup_config() {
 	}
 
 	// Set up rndc rate limiter
-	if *limit_rndc == true { rndc_counter = make(chan string, *rndc_limit) }
+	if *limit_rndc == true {
+		rndc_counter = make(chan string, *rndc_limit)
+	}
 
 	conf = Config{
-		Debug: *debug,
-		Logfile: *logfile,
-		Bind_address: *bind_address,
-		Bind_port: *bind_port,
-		All_tcp: *all_tcp,
-		Master: *master,
-		Query_dest: *query_dest,
-		Zone_file_path: zone_file_path,
-		Query_timeout: query_timeout,
+		Debug:           *debug,
+		Logfile:         *logfile,
+		Bind_address:    *bind_address,
+		Bind_port:       *bind_port,
+		All_tcp:         *all_tcp,
+		Master:          *master,
+		Query_dest:      *query_dest,
+		Zone_file_path:  zone_file_path,
+		Query_timeout:   query_timeout,
 		Transfer_source: transfer_source,
-		Allow_notify: allow_notify,
-		Limit_rndc: *limit_rndc,
-		Rndc_timeout: rndc_timeout,
-		Rndc_limit: *rndc_limit,
-		Rndc_counter: rndc_counter,
-		Status_file: *status_file,
+		Allow_notify:    allow_notify,
+		Limit_rndc:      *limit_rndc,
+		Rndc_timeout:    rndc_timeout,
+		Rndc_limit:      *rndc_limit,
+		Rndc_counter:    rndc_counter,
+		Status_file:     *status_file,
 		Status_interval: status_interval,
 	}
 }
 
-func (c *Config) Print(logger log.Log) {
+func (c *Config) Print() {
+	logger := log.Logger()
 	logger.Debug("****************CONFIG****************")
 	logger.Debug(fmt.Sprintf("debug = %t", c.Debug))
 	logger.Debug(fmt.Sprintf("log = %s", c.Logfile))

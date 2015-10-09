@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	logger          log.Log
+	logger log.Log
 )
 
 // Command and Control OPCODE
@@ -43,7 +43,7 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	message.SetRcode(message, dns.RcodeSuccess)
 
 	full_address := writer.RemoteAddr().String()
-	address:= strings.Split(full_address, ":")[0]
+	address := strings.Split(full_address, ":")[0]
 
 	if allowed(address) != true {
 		msg := fmt.Sprintf("ERROR %s : %s not allowed to talk to slappy", question.Name, address)
@@ -120,7 +120,9 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
-		if err == nil { err = errors.New("0 records in AXFR, probably REFUSED") }
+		if err == nil {
+			err = errors.New("0 records in AXFR, probably REFUSED")
+		}
 		msg := fmt.Sprintf("CREATE ERROR %s : there was a problem with the AXFR: %s", zone_name, err)
 		logger.Error(msg)
 		return handle_error(message, writer, "SERVFAIL")
@@ -170,7 +172,9 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone, err := do_axfr(zone_name)
 	if len(zone) == 0 || err != nil {
-		if err == nil { err = errors.New("0 records in AXFR, probably REFUSED") }
+		if err == nil {
+			err = errors.New("0 records in AXFR, probably REFUSED")
+		}
 		logger.Error(fmt.Sprintf("UPDATE ERROR %s : There was a problem with the AXFR: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
@@ -226,7 +230,7 @@ func rndc(op, zone_name, output_path string) error {
 	cmd := "rndc"
 	zone_clause := ""
 	args := []string{}
-	var err error;
+	var err error
 
 	switch op {
 	case "addzone":
@@ -248,12 +252,12 @@ func rndc(op, zone_name, output_path string) error {
 			// delete the file
 			err := os.Remove(output_path)
 			if err != nil {
-			  return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
+				return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
 			}
 		}
 		return nil
 	} else {
-		rndc_string := op+" "+strings.Join(args, " ")
+		rndc_string := op + " " + strings.Join(args, " ")
 
 		// finished will get filled if the rndc call finishes before the timeout
 		finished := make(chan string, 1)
@@ -277,7 +281,7 @@ func rndc(op, zone_name, output_path string) error {
 				go func() {
 					<-conf.Rndc_counter
 					// do a debug log to say timeout
-					logger.Error("ERROR RNDC: "+rndc_string+" wasn't executed before timeout")
+					logger.Error("ERROR RNDC: " + rndc_string + " wasn't executed before timeout")
 				}()
 				// We don't modify err, so Designate will realize we lied when it polls
 				return
@@ -292,7 +296,7 @@ func rndc(op, zone_name, output_path string) error {
 			go func() {
 				<-conf.Rndc_counter
 				// We ack conf.Rndc_counter once so that another query can have the lock
-				logger.Debug("RNDC SUCCESS: "+rndc_string+" completed")
+				logger.Debug("RNDC SUCCESS: " + rndc_string + " completed")
 			}()
 			// Since we've finished, we light up the finished channel, so the main function knows
 			// we've finished before the timeout
@@ -306,7 +310,7 @@ func rndc(op, zone_name, output_path string) error {
 				// delete the file
 				err := os.Remove(output_path)
 				if err != nil {
-				  return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
+					return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
 				}
 			}
 		case <-time.After(conf.Rndc_timeout):
@@ -356,7 +360,7 @@ func get_serial(zone_name, query_dest string) uint32 {
 	conf := config.Conf()
 
 	var serial uint32 = 0
-	var in *dns.Msg;
+	var in *dns.Msg
 
 	m := new(dns.Msg)
 	m.SetQuestion(zone_name, dns.TypeSOA)
@@ -378,9 +382,11 @@ func get_serial(zone_name, query_dest string) uint32 {
 		co.Close()
 	} else {
 		c := &dns.Client{DialTimeout: conf.Query_timeout, ReadTimeout: conf.Query_timeout}
-		if conf.All_tcp == true { c.Net = "tcp" }
+		if conf.All_tcp == true {
+			c.Net = "tcp"
+		}
 		// _ is query time, might be useful later
-		var err error;
+		var err error
 		in, _, err = c.Exchange(m, query_dest)
 		if err != nil {
 			logger.Debug(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
@@ -470,20 +476,20 @@ func debug_request(request dns.Msg, question dns.Question, writer dns.ResponseWr
 	return strings.Join(s, "")
 }
 
-
 func main() {
 	// Set up config
 	config.Setup_config()
 	conf := config.Conf()
 
 	// Set up logging
-	logger = log.InitLog(conf.Logfile, conf.Debug)
+	log.InitLog(conf.Logfile, conf.Debug)
+	logger = log.Logger()
 
 	// Debug config
-	conf.Print(logger)
+	conf.Print()
 
 	// Init Stats
-	go stats.Status_file(logger)
+	go stats.Status_file()
 
 	go serve("tcp", conf.Bind_address, conf.Bind_port)
 	go serve("udp", conf.Bind_address, conf.Bind_port)

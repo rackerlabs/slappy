@@ -6,8 +6,10 @@ import (
 	"os"
 )
 
+var logger Log
+
 type Log struct {
-	debug  		bool
+	debug       bool
 	Debuglogger log.Logger
 	Infologger  log.Logger
 	Warnlogger  log.Logger
@@ -32,7 +34,7 @@ func (l *Log) Error(line string) {
 	l.Errorlogger.Println(line)
 }
 
-func InitLog(logfile string, debug bool) Log {
+func InitLog(logfile string, debug bool) {
 	var logwriter io.Writer = os.Stdout
 	if logfile != "" {
 		f, err := os.OpenFile(logfile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
@@ -46,5 +48,9 @@ func InitLog(logfile string, debug bool) Log {
 	i := log.New(logwriter, "INFO : ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
 	c := log.New(logwriter, "WARN : ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
 	e := log.New(logwriter, "ERROR: ", log.Ldate|log.Ltime|log.Lmicroseconds|log.LUTC)
-	return Log{debug: debug, Debuglogger: *d, Infologger: *i, Warnlogger: *c, Errorlogger: *e}
+	logger = Log{debug: debug, Debuglogger: *d, Infologger: *i, Warnlogger: *c, Errorlogger: *e}
+}
+
+func Logger() Log {
+	return logger
 }
