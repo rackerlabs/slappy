@@ -175,7 +175,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	output_path := conf.Zone_file_path + zone_name + "zone"
+	output_path := conf.Zone_file_path + zone_name
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
@@ -205,7 +205,9 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return message
 	}
 
-	err := rndc("delzone", zone_name, "")
+	output_path := conf.Zone_file_path + zone_name
+
+	err := rndc("delzone", zone_name, output_path)
 	if err != nil {
 		logger.Error(fmt.Sprintf("DELETE ERROR %s : problem executing rndc delzone: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
@@ -241,6 +243,13 @@ func rndc(op, zone_name, output_path string) error {
 	if conf.Limit_rndc == false {
 		if e := exec.Command(cmd, args...).Run(); e != nil {
 			return err
+		}
+		if op == "delzone" {
+			// delete the file
+			err := os.Remove(output_path)
+			if err != nil {
+			  return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
+			}
 		}
 		return nil
 	} else {
@@ -293,6 +302,13 @@ func rndc(op, zone_name, output_path string) error {
 		select {
 		case _ = <-finished:
 			// We finished before the timeout
+			if op == "delzone" {
+				// delete the file
+				err := os.Remove(output_path)
+				if err != nil {
+				  return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
+				}
+			}
 		case <-time.After(conf.Rndc_timeout):
 			// We have timed out, throw away the rndc call by interupting the goroutine above
 			// Spawn a GoRoutine for the interrupt so that we can return this function
