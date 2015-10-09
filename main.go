@@ -15,6 +15,7 @@ import (
 
 	"github.com/rackerlabs/slappy/config"
 	"github.com/rackerlabs/slappy/log"
+	"github.com/rackerlabs/slappy/stats"
 )
 
 var (
@@ -470,6 +471,9 @@ func main() {
 
 	// Debug config
 	conf.Print(logger)
+
+	// Init Stats
+	go stats.Status_file(logger)
 
 	go serve("tcp", conf.Bind_address, conf.Bind_port)
 	go serve("udp", conf.Bind_address, conf.Bind_port)
