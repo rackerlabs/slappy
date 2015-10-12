@@ -32,3 +32,4 @@ rndc_timeout = 25
 #################
 status_file = ""
 status_interval = 60
+stats_uri = /stats.
