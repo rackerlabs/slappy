@@ -79,7 +79,7 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 	default:
 		if question.Name == conf.Stats_uri {
 			message = stats.Stats_dns_message(message, writer)
-			logger.Debug("STATS SUCCESS : Sent runtime stats")
+			logger.Debug("SUCCESS STATS : Sent runtime stats")
 			break
 		}
 		logger.Debug(fmt.Sprintf("ERROR %s : unsupported opcode %d", question.Name, request.Opcode))
