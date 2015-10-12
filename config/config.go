@@ -32,6 +32,7 @@ type Config struct {
 	Rndc_counter    chan string
 	Status_file     string
 	Status_interval time.Duration
+	Stats_uri       string
 }
 
 // These vars are necessary because the actual values in the `flag.x` don't
@@ -66,6 +67,8 @@ func Setup_config() {
 
 	status_file := flag.String("status_file", "", "path to write a status file, empty means no status file")
 	status_interval_raw := flag.Int("status_interval", 60, "seconds to wait between status file writes")
+
+	stats_uri := flag.String("stats_uri", "/stats.", "hostname to dig for to get stats, should be an invalid dns name!")
 
 	flag.Usage = func() {
 		flag.PrintDefaults()
@@ -114,6 +117,7 @@ func Setup_config() {
 		Rndc_counter:    rndc_counter,
 		Status_file:     *status_file,
 		Status_interval: status_interval,
+		Stats_uri:       *stats_uri,
 	}
 }
 
@@ -133,7 +137,8 @@ func (c *Config) Print() {
 	logger.Debug(fmt.Sprintf("rndc_timeout = %s", c.Rndc_timeout))
 	logger.Debug(fmt.Sprintf("rndc_limit = %d", c.Rndc_limit))
 	logger.Debug(fmt.Sprintf("status_file = %s", c.Status_file))
-	logger.Debug(fmt.Sprintf("status_interval = %d", c.Status_interval))
+	logger.Debug(fmt.Sprintf("status_interval = %s", c.Status_interval))
+	logger.Debug(fmt.Sprintf("stats_uri = %s", c.Stats_uri))
 	if c.Transfer_source != nil {
 		logger.Debug(fmt.Sprintf("transfer_source = %s", (c.Transfer_source).String()))
 	}

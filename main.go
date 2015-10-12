@@ -36,6 +36,8 @@ const CREATE = 65282
 const DELETE = 65283
 
 func handle(writer dns.ResponseWriter, request *dns.Msg) {
+	conf := config.Conf()
+
 	question := request.Question[0]
 
 	message := new(dns.Msg)
@@ -55,6 +57,8 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 
 	logger.Debug(debug_request(*request, question, writer))
 
+	go stats.Stat("query")
+
 	switch request.Opcode {
 	case dns.OpcodeNotify:
 		message = handle_notify(question, message, writer)
@@ -73,6 +77,11 @@ func handle(writer dns.ResponseWriter, request *dns.Msg) {
 			message = handle_error(message, writer, "REFUSED")
 		}
 	default:
+		if question.Name == conf.Stats_uri {
+			message = stats.Stats_dns_message(message, writer)
+			logger.Debug("STATS SUCCESS : Sent runtime stats")
+			break
+		}
 		logger.Debug(fmt.Sprintf("ERROR %s : unsupported opcode %d", question.Name, request.Opcode))
 		message = handle_error(message, writer, "REFUSED")
 	}
@@ -225,6 +234,9 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 }
 
 func rndc(op, zone_name, output_path string) error {
+	// Bop the 'attempts' stat
+	go stats.Stat("rndc_att")
+
 	conf := config.Conf()
 
 	cmd := "rndc"
@@ -255,6 +267,9 @@ func rndc(op, zone_name, output_path string) error {
 				return errors.New(fmt.Sprintf("ERROR : Couldn't delete zonefile %s : %s", output_path, err))
 			}
 		}
+		// Bop the stat for this operation
+		go stats.Stat(op)
+
 		return nil
 	} else {
 		rndc_string := op + " " + strings.Join(args, " ")
@@ -306,6 +321,10 @@ func rndc(op, zone_name, output_path string) error {
 		select {
 		case _ = <-finished:
 			// We finished before the timeout
+
+			// Bop the stat for this operation
+			go stats.Stat(op)
+
 			if op == "delzone" {
 				// delete the file
 				err := os.Remove(output_path)
@@ -489,7 +508,7 @@ func main() {
 	conf.Print()
 
 	// Init Stats
-	go stats.Status_file()
+	stats.Init_stats()
 
 	go serve("tcp", conf.Bind_address, conf.Bind_port)
 	go serve("udp", conf.Bind_address, conf.Bind_port)
