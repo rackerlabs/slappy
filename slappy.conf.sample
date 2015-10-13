@@ -19,6 +19,8 @@ master = 127.0.0.1:5354
 queries = 127.0.0.1:53
 zone_path = ./
 allow_notify = ""
+query_timeout = 10
+transfer_source = ""
 
 #################
 # Limit RNDC
