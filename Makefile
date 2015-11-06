@@ -13,7 +13,7 @@ help:
 	@echo ""
 
 build: fmt
-	go build -o slappy main.go
+	go build -o slappy -ldflags "-X main.builddate=`date -u '+%Y-%m-%d_%I:%M:%S%p'` -X main.gitref=`git rev-parse HEAD`" main.go
 
 run:
 	./slappy -debug
