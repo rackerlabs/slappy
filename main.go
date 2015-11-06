@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/rackerlabs/dns"
 	"os"
@@ -13,6 +14,9 @@ import (
 	"github.com/rackerlabs/slappy/slapdns"
 	"github.com/rackerlabs/slappy/stats"
 )
+
+var builddate = ""
+var gitref = ""
 
 func serve(net, ip, port string) {
 	logger := log.Logger()
@@ -50,9 +54,18 @@ forever:
 }
 
 func main() {
+	// Provide a '--version' flag
+	version := flag.Bool("version", false, "prints version information")
+
 	// Set up config
 	config.Setup_config()
 	conf := config.Conf()
+
+	// Exit if someone just wants to know version
+	if *version == true {
+		fmt.Println(fmt.Sprintf("built from %s on %s", gitref, builddate))
+		os.Exit(0)
+	}
 
 	// Set up logging
 	log.InitLog(conf.Logfile, conf.Debug)

@@ -43,7 +43,7 @@ var (
 )
 
 func Setup_config() {
-	// Load config
+	// Load config, this should all be refactored because it's awful
 	debug := flag.Bool("debug", false, "enables debug mode")
 	logfile := flag.String("log", "", "file for the log, if empty will log only to stdout")
 
