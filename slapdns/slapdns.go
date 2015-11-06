@@ -132,7 +132,7 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	output_path := conf.Zone_file_path + zone_name
+	output_path := conf.Zone_file_path + strings.TrimSuffix(zone_name, ".")
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
@@ -184,7 +184,7 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
-	output_path := conf.Zone_file_path + zone_name
+	output_path := conf.Zone_file_path + strings.TrimSuffix(zone_name, ".")
 
 	err = write_zonefile(zone_name, zone, output_path)
 	if err != nil {
@@ -215,7 +215,7 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 		return message
 	}
 
-	output_path := conf.Zone_file_path + zone_name
+	output_path := conf.Zone_file_path + strings.TrimSuffix(zone_name, ".")
 
 	err := rndc("delzone", zone_name, output_path)
 	if err != nil {
