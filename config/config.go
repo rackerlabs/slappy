@@ -16,6 +16,7 @@ var conf Config
 type Config struct {
 	Debug           bool
 	Logfile         string
+	Log_syslog      bool
 	Logger          log.Log
 	Bind_address    string
 	Bind_port       string
@@ -46,6 +47,7 @@ func Setup_config() {
 	// Load config, this should all be refactored because it's awful
 	debug := flag.Bool("debug", false, "enables debug mode")
 	logfile := flag.String("log", "", "file for the log, if empty will log only to stdout")
+	log_syslog := flag.Bool("use_syslog", false, "log only to syslog")
 
 	bind_address := flag.String("bind_address", "", "IP to listen on")
 	bind_port := flag.String("bind_port", "5358", "port to listen on")
@@ -102,6 +104,7 @@ func Setup_config() {
 	conf = Config{
 		Debug:           *debug,
 		Logfile:         *logfile,
+		Log_syslog:      *log_syslog,
 		Bind_address:    *bind_address,
 		Bind_port:       *bind_port,
 		All_tcp:         *all_tcp,
