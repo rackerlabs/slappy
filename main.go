@@ -68,7 +68,7 @@ func main() {
 	}
 
 	// Set up logging
-	log.InitLog(conf.Logfile, conf.Debug)
+	log.InitLog(conf.Log_syslog, conf.Logfile, conf.Debug)
 
 	// Debug config
 	conf.Print()
