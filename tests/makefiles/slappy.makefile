@@ -31,6 +31,10 @@ clean:
 
 check:
 	docker exec $(BIND_TAG) rndc status
+	dig @$(BIND_IP) -p 5358 /stats +short
 
 ip:
 	@echo $(BIND_IP)
+
+shell:
+	docker exec -it $(BIND_TAG) bash

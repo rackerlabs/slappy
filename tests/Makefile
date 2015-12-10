@@ -22,6 +22,14 @@ stop-containers:
 	make -f $(MASTER_MAKEFILE) stop
 	make -f $(SLAPPY_MAKEFILE) stop
 
+check-containers:
+	make -f $(MASTER_MAKEFILE) check
+	make -f $(SLAPPY_MAKEFILE) check
+
+ips:
+	@echo "MASTER: `make -s -f $(MASTER_MAKEFILE) ip`"
+	@echo "TARGET: `make -s -f $(SLAPPY_MAKEFILE) ip`"
+
 write-config:
 	@rm -f $(SLAPPY_CONF) && touch $(SLAPPY_CONF)
 	@echo "[slappy]"            >> $(SLAPPY_CONF)

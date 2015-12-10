@@ -1,1 +1,3 @@
 slappy.conf
+.venv/
+*.pyc
