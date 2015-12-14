@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 BIND_TAG=slappy-bind-master
 BIND_CID=$(shell docker ps | grep $(BIND_TAG) | cut -f1 -d' ')
-BIND_IP=$(shell docker inspect $(BIND_CID) | jq -r '.[0].NetworkSettings.IPAddress')
+BIND_IP=$(shell if [ ! -z "$(BIND_CID)" ]; then docker inspect $(BIND_CID) | jq -r '.[0].NetworkSettings.IPAddress'; fi)
 
 help:
 	@echo "build        - build the docker bind image"
