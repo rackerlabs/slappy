@@ -1,20 +1,18 @@
-language: python
+language: go
+go:
+    - 1.5.2
 
-env:
-    - TOXENV=py27
-    - TOXENV=flake8
+sudo: required
+services:
+    - docker
 
 install:
-    - "cd tests && make build-docker-images && make start-containers"
-    - "pip install tox"
-
+    - "sudo apt-get update && sudo apt-get install -y python-virtualenv"
 script:
-    - "cd tests && make write-test-config && tox"
+    - "pip install tox"
+    - "make build"
+    - "cd tests && make build-docker-images start-containers write-test-config"
+    - "cd tests && tox"
 
 notifications:
     email: false
-
-sudo: required
-
-services:
-    - docker
