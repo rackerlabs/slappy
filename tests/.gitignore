@@ -1,3 +1,4 @@
 slappy.conf
 .venv/
 *.pyc
+.tox/
