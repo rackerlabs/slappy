@@ -2,3 +2,4 @@ slappy.conf
 .venv/
 *.pyc
 .tox/
+test.conf

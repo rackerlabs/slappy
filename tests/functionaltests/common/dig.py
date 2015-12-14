@@ -1,5 +1,4 @@
 import logging
-import time
 
 import dns
 import dns.query
@@ -19,11 +18,11 @@ def _dig(func, *args, **kwargs):
     return result
 
 
-def tcp(zone_name, nameserver, rdatatype):
+def tcp(zone_name, nameserver, rdatatype, port=53):
     query = _prepare_query(zone_name, rdatatype)
-    return _dig(dns.query.tcp, query, nameserver)
+    return _dig(dns.query.tcp, query, nameserver, port=port)
 
 
-def udp(zone_name, nameserver, rdatatype):
+def udp(zone_name, nameserver, rdatatype, port=53):
     query = _prepare_query(zone_name, rdatatype)
-    return _dig(dns.query.udp, query, nameserver)
+    return _dig(dns.query.udp, query, nameserver, port=port)

@@ -1,9 +1,11 @@
 MASTER_MAKEFILE=$(shell find . -name "master.makefile")
 SLAPPY_MAKEFILE=$(shell find . -name "slappy.makefile")
 
-BIND_MASTER_IP=$(shell make -s -f $(MASTER_MAKEFILE) ip)
+MASTER_IP=$(shell make -s -f $(MASTER_MAKEFILE) ip)
+SLAPPY_IP=$(shell make -s -f $(SLAPPY_MAKEFILE) ip)
 
 SLAPPY_CONF=docker/slappy.conf
+TEST_CONF=test.conf
 
 help:
 	@echo "build-docker-images          - build the docker bind image"
@@ -49,16 +51,16 @@ write-config:
 	@echo "all_tcp = true"          >> $(SLAPPY_CONF)
 	@echo ""                        >> $(SLAPPY_CONF)
 
-	@echo "#################"           >> $(SLAPPY_CONF)
-	@echo "# DNS Options"               >> $(SLAPPY_CONF)
-	@echo "#################"           >> $(SLAPPY_CONF)
-	@echo "master = $(BIND_MASTER_IP)"  >> $(SLAPPY_CONF)
-	@echo "queries = 127.0.0.1:53"      >> $(SLAPPY_CONF)
-	@echo "zone_path = ./"              >> $(SLAPPY_CONF)
-	@echo "allow_notify = \"\""         >> $(SLAPPY_CONF)
-	@echo "query_timeout = 10"          >> $(SLAPPY_CONF)
-	@echo "transfer_source = \"\""      >> $(SLAPPY_CONF)
-	@echo ""                            >> $(SLAPPY_CONF)
+	@echo "#################"       >> $(SLAPPY_CONF)
+	@echo "# DNS Options"           >> $(SLAPPY_CONF)
+	@echo "#################"       >> $(SLAPPY_CONF)
+	@echo "master = $(MASTER_IP)"   >> $(SLAPPY_CONF)
+	@echo "queries = 127.0.0.1:53"  >> $(SLAPPY_CONF)
+	@echo "zone_path = ./"          >> $(SLAPPY_CONF)
+	@echo "allow_notify = \"\""     >> $(SLAPPY_CONF)
+	@echo "query_timeout = 10"      >> $(SLAPPY_CONF)
+	@echo "transfer_source = \"\""  >> $(SLAPPY_CONF)
+	@echo ""                        >> $(SLAPPY_CONF)
 
 	@echo "#################"       >> $(SLAPPY_CONF)
 	@echo "# Limit RNDC"            >> $(SLAPPY_CONF)
@@ -75,3 +77,15 @@ write-config:
 	@echo "status_interval = 60"    >> $(SLAPPY_CONF)
 	@echo "stats_uri = /stats."     >> $(SLAPPY_CONF)
 	@echo ""                        >> $(SLAPPY_CONF)
+
+write-test-config:
+	@rm -f $(TEST_CONF) && touch $(TEST_CONF)
+	@echo "[slappy]"            >> $(TEST_CONF)
+	@echo "host = $(SLAPPY_IP)" >> $(TEST_CONF)
+	@echo "port = 5358"         >> $(TEST_CONF)
+	@echo ""                    >> $(TEST_CONF)
+
+	@echo "[master]"            >> $(TEST_CONF)
+	@echo "host = $(MASTER_IP)" >> $(TEST_CONF)
+	@echo "port = 53"           >> $(TEST_CONF)
+	@echo ""                    >> $(TEST_CONF)
