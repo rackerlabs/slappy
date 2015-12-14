@@ -1,5 +1,7 @@
 # slappy
 
+[![Build Status](https://travis-ci.org/rackerlabs/slappy.svg?branch=master)](https://travis-ci.org/rackerlabs/slappy)
+
 Welcome to the designate-agent, rewritten in Go.
 
 When you install go you'll want to make your tree look like:
