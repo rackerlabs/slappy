@@ -1,0 +1,20 @@
+language: python
+
+env:
+    - TOXENV=py27
+    - TOXENV=flake8
+
+install:
+    - "cd tests && make build-docker-images && make start-containers"
+    - "pip install tox"
+
+script:
+    - "cd tests && make write-test-config && tox"
+
+notifications:
+    email: false
+
+sudo: required
+
+services:
+    - docker
