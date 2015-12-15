@@ -8,7 +8,7 @@ EXPOSE 953/udp
 USER root
 ENV DEBIAN_FRONTEND noninteractive
 
-RUN apt-get update && apt-get install -y bind9 
+RUN apt-get update && apt-get install -y bind9 dnsutils
 
 COPY ./named.conf.options /etc/bind/named.conf.options
 COPY ./rndc.key /etc/bind/rndc.key
