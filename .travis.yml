@@ -11,7 +11,8 @@ install:
 script:
     - "sudo pip install tox"
     - "make dependencies build"
-    - "cd tests && make build-docker-images start-containers write-test-config"
+    - "./slappy -h || true"
+    - "cd tests && SLAPPY_EXE=../slappy make build-docker-images start-containers write-test-config"
     - "cd tests && tox"
 
 notifications:
