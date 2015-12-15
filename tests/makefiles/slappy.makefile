@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 
 # attempt to find the slappy executable
-SLAPPY_EXE=$(shell find "$$GOPATH/bin" -name "slappy")
+SLAPPY_EXE=$(shell if [ -z "$$SLAPPY_EXE" ]; then find "$$GOPATH/bin" -name "slappy"; else echo "$$SLAPPY_EXE"; fi)
 
 BIND_TAG=slappy-bind
 BIND_CID=$(shell docker ps | grep $(BIND_TAG) | cut -f1 -d' ')
