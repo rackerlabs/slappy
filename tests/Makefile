@@ -2,6 +2,7 @@ MASTER_MAKEFILE=$(shell find . -name "master.makefile")
 SLAPPY_MAKEFILE=$(shell find . -name "slappy.makefile")
 
 MASTER_IP=$(shell make -s -f $(MASTER_MAKEFILE) ip)
+MASTER_TAG=$(shell make -s -f $(MASTER_MAKEFILE) tag)
 SLAPPY_IP=$(shell make -s -f $(SLAPPY_MAKEFILE) ip)
 
 SLAPPY_CONF=docker/slappy.conf
@@ -11,6 +12,11 @@ help:
 	@echo "build-docker-images          - build the docker bind image"
 	@echo "start-containers             - start all containers"
 	@echo "stop-containers              - stop all containers"
+	@echo "check-containers             - check the containers are running the things"
+	@echo "ips                          - print the ips of our containers"
+	@echo "write-config                 - write the slappy config used in the docker container"
+	@echo "write-test-config            - write the config for the tests"
+
 
 build-docker-images: write-config
 	make -f $(MASTER_MAKEFILE) build
@@ -51,16 +57,16 @@ write-config:
 	@echo "all_tcp = true"          >> $(SLAPPY_CONF)
 	@echo ""                        >> $(SLAPPY_CONF)
 
-	@echo "#################"       >> $(SLAPPY_CONF)
-	@echo "# DNS Options"           >> $(SLAPPY_CONF)
-	@echo "#################"       >> $(SLAPPY_CONF)
-	@echo "master = $(MASTER_IP)"   >> $(SLAPPY_CONF)
-	@echo "queries = 127.0.0.1:53"  >> $(SLAPPY_CONF)
-	@echo "zone_path = ./"          >> $(SLAPPY_CONF)
-	@echo "allow_notify = \"\""     >> $(SLAPPY_CONF)
-	@echo "query_timeout = 10"      >> $(SLAPPY_CONF)
-	@echo "transfer_source = \"\""  >> $(SLAPPY_CONF)
-	@echo ""                        >> $(SLAPPY_CONF)
+	@echo "#################"               >> $(SLAPPY_CONF)
+	@echo "# DNS Options"                   >> $(SLAPPY_CONF)
+	@echo "#################"               >> $(SLAPPY_CONF)
+	@echo "master = $(MASTER_IP)"           >> $(SLAPPY_CONF)
+	@echo "queries = 127.0.0.1:53"          >> $(SLAPPY_CONF)
+	@echo "zone_path = /var/cache/bind/"    >> $(SLAPPY_CONF)
+	@echo "allow_notify = \"\""             >> $(SLAPPY_CONF)
+	@echo "query_timeout = 10"              >> $(SLAPPY_CONF)
+	@echo "transfer_source = \"\""          >> $(SLAPPY_CONF)
+	@echo ""                                >> $(SLAPPY_CONF)
 
 	@echo "#################"       >> $(SLAPPY_CONF)
 	@echo "# Limit RNDC"            >> $(SLAPPY_CONF)
@@ -85,7 +91,13 @@ write-test-config:
 	@echo "port = 5358"         >> $(TEST_CONF)
 	@echo ""                    >> $(TEST_CONF)
 
-	@echo "[master]"            >> $(TEST_CONF)
-	@echo "host = $(MASTER_IP)" >> $(TEST_CONF)
-	@echo "port = 53"           >> $(TEST_CONF)
-	@echo ""                    >> $(TEST_CONF)
+	@echo "[master]"                    >> $(TEST_CONF)
+	@echo "host = $(MASTER_IP)"         >> $(TEST_CONF)
+	@echo "port = 53"                   >> $(TEST_CONF)
+	@echo "rndc_target_type = docker"   >> $(TEST_CONF)
+	@echo ""                            >> $(TEST_CONF)
+
+	@echo "[master:docker]"         >> $(TEST_CONF)
+	@echo "id = $(MASTER_TAG)"      >> $(TEST_CONF)
+	@echo "dir = /var/cache/bind/"  >> $(TEST_CONF)
+	@echo ""                        >> $(TEST_CONF)
