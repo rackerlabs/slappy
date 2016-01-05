@@ -12,6 +12,7 @@ help:
 	@echo "clean        - delete the docker bind image"
 	@echo "ip           - print bind's ip address to paste into configs"
 	@echo "tag          - print the tag used for this container"
+	@echo "shell        - get a shell into the running container"
 
 build:
 	cd docker/ && docker build -t $(BIND_TAG) -f ./Dockerfile.master .

@@ -9,7 +9,6 @@ SLAPPY_CONF=docker/slappy.conf
 TEST_CONF=test.conf
 
 help:
-	@echo "build-docker-images          - build the docker bind image"
 	@echo "start-containers             - start all containers"
 	@echo "stop-containers              - stop all containers"
 	@echo "check-containers             - check the containers are running the things"
@@ -18,13 +17,18 @@ help:
 	@echo "write-test-config            - write the config for the tests"
 
 
-build-docker-images: write-config
-	make -f $(MASTER_MAKEFILE) build
-	make -f $(SLAPPY_MAKEFILE) build
+# the slappy config needs the ip of the master
+start-containers: build-and-start-master write-config build-and-start-slappy
 
-start-containers:
+build-and-start-master:
+	make -f $(MASTER_MAKEFILE) build
 	make -f $(MASTER_MAKEFILE) start
+	make -f $(MASTER_MAKEFILE) check
+
+build-and-start-slappy:
+	make -f $(SLAPPY_MAKEFILE) build
 	make -f $(SLAPPY_MAKEFILE) start
+	make -f $(SLAPPY_MAKEFILE) check
 
 stop-containers:
 	make -f $(MASTER_MAKEFILE) stop
@@ -44,7 +48,7 @@ write-config:
 	@echo "#################"   >> $(SLAPPY_CONF)
 	@echo "# General"           >> $(SLAPPY_CONF)
 	@echo "#################"   >> $(SLAPPY_CONF)
-	@echo "debug = false"       >> $(SLAPPY_CONF)
+	@echo "debug = true"        >> $(SLAPPY_CONF)
 	@echo "log = slappy.log"    >> $(SLAPPY_CONF)
 	@echo "use_syslog = false"  >> $(SLAPPY_CONF)
 	@echo ""                    >> $(SLAPPY_CONF)
@@ -60,7 +64,7 @@ write-config:
 	@echo "#################"               >> $(SLAPPY_CONF)
 	@echo "# DNS Options"                   >> $(SLAPPY_CONF)
 	@echo "#################"               >> $(SLAPPY_CONF)
-	@echo "master = $(MASTER_IP)"           >> $(SLAPPY_CONF)
+	@echo "master = $(MASTER_IP):53"        >> $(SLAPPY_CONF)
 	@echo "queries = 127.0.0.1:53"          >> $(SLAPPY_CONF)
 	@echo "zone_path = /var/cache/bind/"    >> $(SLAPPY_CONF)
 	@echo "allow_notify = \"\""             >> $(SLAPPY_CONF)

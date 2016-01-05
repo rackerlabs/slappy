@@ -22,4 +22,4 @@ RUN chown -R bind:bind /var/cache/bind
 RUN chown -R bind:bind /var/log/bind
 RUN chown bind:bind /etc/bind/rndc.key
 
-CMD service bind9 restart && ./slappy -debug && tail -F /var/log/bind/bind.log
+CMD service bind9 restart && ./slappy -config ./slappy.conf && tail -F /var/log/bind/bind.log

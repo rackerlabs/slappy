@@ -9,11 +9,13 @@ BIND_IP=$(shell if [ ! -z "$(BIND_CID)" ]; then docker inspect $(BIND_CID) | jq 
 
 help:
 	@echo "build        - build the docker bind image"
-	@echo "start 		- start the container running bind"
-	@echo "stop 		- kill and remove the container"
-	@echo "check 		- check that bind is running"
+	@echo "start        - start the container running bind"
+	@echo "stop         - kill and remove the container"
+	@echo "check        - check that bind is running"
 	@echo "clean        - delete the docker bind image"
 	@echo "ip           - print bind's ip address to paste into configs"
+	@echo "tag          - print the tag used for this container"
+	@echo "shell        - get a shell into the running container"
 
 build:
 	cp $(SLAPPY_EXE) docker/slappy
@@ -38,3 +40,6 @@ ip:
 
 shell:
 	docker exec -it $(BIND_TAG) bash
+
+tag:
+	@echo $(BIND_TAG)
