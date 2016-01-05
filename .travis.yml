@@ -12,7 +12,7 @@ script:
     - "sudo pip install tox"
     - "make dependencies build"
     - "./slappy -h || true"
-    - "cd tests && SLAPPY_EXE=../slappy make build-docker-images start-containers write-test-config && tox"
+    - "cd tests && SLAPPY_EXE=../slappy make start-containers write-test-config && tox"
 
 notifications:
     email: false
