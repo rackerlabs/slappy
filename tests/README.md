@@ -21,7 +21,7 @@ You'll need to:
 5. Build the docker containers
 6. Run the tests
 
-There are makefiles to help with a lot of this.
+There are makefiles to help with some of lot of this.
 
 
 ##### Build slappy
@@ -31,7 +31,10 @@ Install go and build slappy:
 1. Install go.
 2. Set your `$GOPATH` to some directory and `go get github.com/rackerlabs/slappy`.
 3. `cd` into `$GOPATH/src/github.com/rackerlabs/slappy`
-4. Build slappy with a `make build`. This should put `slappy` at `$GOPATH/bin`
+4. Build slappy with a `make build`. This should put `slappy` at `$GOPATH/bin`.
+
+The makefiles will search `$GOPATH/bin` for the slappy executable to copy into
+the docker container.
 
 
 ##### Build the docker images
@@ -39,5 +42,14 @@ Install go and build slappy:
 Now build and start the docker containers using a makefile:
 
 1. Move into the tests directory: `cd tests`
-2. `make build-docker-images` to build the images
-3. `make start-containers` to start the containers
+2. `make start-containers` to build the images and start the containers
+3. `make check-containers` will fail if either bind or slappy are not running
+
+
+##### Running the tests
+
+Install some dependencies and run the tests
+
+1. `make write-test-config` will write out a `test.conf` file for the tests
+2. `pip install tox` - tox is used to run the tests
+3. `tox -e py27` will run the tests
