@@ -23,12 +23,10 @@ start-containers: build-and-start-master write-config build-and-start-slappy
 build-and-start-master:
 	make -f $(MASTER_MAKEFILE) build
 	make -f $(MASTER_MAKEFILE) start
-	make -f $(MASTER_MAKEFILE) check
 
 build-and-start-slappy:
 	make -f $(SLAPPY_MAKEFILE) build
 	make -f $(SLAPPY_MAKEFILE) start
-	make -f $(SLAPPY_MAKEFILE) check
 
 stop-containers:
 	make -f $(MASTER_MAKEFILE) stop
