@@ -1,0 +1,25 @@
+FROM ubuntu:14.04
+
+EXPOSE 53/udp
+EXPOSE 53/tcp
+EXPOSE 953/tcp
+EXPOSE 953/udp
+EXPOSE 5358/udp
+EXPOSE 5358/tcp
+
+USER root
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt-get update && apt-get install -y bind9 dnsutils
+
+COPY ./named.conf.options /etc/bind/named.conf.options
+COPY ./rndc.key /etc/bind/rndc.key
+COPY ./slappy slappy
+COPY ./slappy.conf slappy.conf
+RUN mkdir -p /var/cache/bind/
+RUN mkdir -p /var/log/bind/
+RUN chown -R bind:bind /var/cache/bind
+RUN chown -R bind:bind /var/log/bind
+RUN chown bind:bind /etc/bind/rndc.key
+
+CMD service bind9 restart && ./slappy -config ./slappy.conf && tail -F /var/log/bind/bind.log
