@@ -116,7 +116,11 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone_name := question.Name
 
-	serial := get_serial(zone_name, conf.Query_dest)
+	serial, err := get_serial(zone_name, conf.Query_dest)
+	if err != nil {
+		logger.Error(fmt.Sprintf("CREATE ERROR %s : There was a problem querying %s: %s", zone_name, conf.Query_dest, err))
+		return handle_error(message, writer, "SERVFAIL")
+	}
 	if serial != 0 {
 		logger.Info(fmt.Sprintf("CREATE SUCCESS %s : zone already exists", zone_name))
 		return message
@@ -158,14 +162,22 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	zone_name := question.Name
 
-	serial := get_serial(zone_name, conf.Query_dest)
+	serial, err := get_serial(zone_name, conf.Query_dest)
+	if err != nil {
+		logger.Error(fmt.Sprintf("UPDATE ERROR %s : There was a problem querying %s: %s", zone_name, conf.Query_dest, err))
+		return handle_error(message, writer, "SERVFAIL")
+	}
 	if serial == 0 {
 		logger.Error(fmt.Sprintf("UPDATE ERROR %s : zone doesn't exist", zone_name))
 		return handle_error(message, writer, "SERVFAIL")
 	}
 
 	// Check our master for the SOA of this zone
-	master_serial := get_serial(zone_name, conf.Master)
+	master_serial, err := get_serial(zone_name, conf.Master)
+	if err != nil {
+		logger.Error(fmt.Sprintf("UPDATE ERROR %s : There was a problem querying %s: %s", zone_name, conf.Master, err))
+		return handle_error(message, writer, "SERVFAIL")
+	}
 	if master_serial == 0 {
 		logger.Error(fmt.Sprintf("UPDATE ERROR %s : problem with master SOA query", zone_name))
 		return handle_error(message, writer, "SERVFAIL")
@@ -209,7 +221,11 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 	logger := log.Logger()
 	zone_name := question.Name
 
-	serial := get_serial(zone_name, conf.Query_dest)
+	serial, err := get_serial(zone_name, conf.Query_dest)
+	if err != nil {
+		logger.Error(fmt.Sprintf("DELETE ERROR %s : There was a problem querying %s: %s", zone_name, conf.Query_dest, err))
+		return handle_error(message, writer, "SERVFAIL")
+	}
 	if serial == 0 {
 		logger.Info(fmt.Sprintf("DELETE SUCCESS %s : zone doesn't exist", zone_name))
 		return message
@@ -217,13 +233,11 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 	output_path := conf.Zone_file_path + strings.TrimSuffix(zone_name, ".")
 
-	err := rndc("delzone", zone_name, output_path)
+	err = rndc("delzone", zone_name, output_path)
 	if err != nil {
 		logger.Error(fmt.Sprintf("DELETE ERROR %s : problem executing rndc delzone: %s", zone_name, err))
 		return handle_error(message, writer, "SERVFAIL")
 	}
-
-	// TODO: Delete the zonefile maybe?
 
 	logger.Info(fmt.Sprintf("DELETE SUCCESS %s", zone_name))
 
@@ -374,13 +388,11 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 	return result, nil
 }
 
-func get_serial(zone_name, query_dest string) uint32 {
+func get_serial(zone_name, query_dest string) (uint32, error) {
 	conf := config.Conf()
 	logger := log.Logger()
 
-	var serial uint32 = 0
 	var in *dns.Msg
-
 	m := new(dns.Msg)
 	m.SetQuestion(zone_name, dns.TypeSOA)
 
@@ -388,15 +400,15 @@ func get_serial(zone_name, query_dest string) uint32 {
 		d := net.Dialer{LocalAddr: conf.Transfer_source}
 		c, err := d.Dial("tcp", query_dest)
 		if err != nil {
-			logger.Debug(fmt.Sprintf("QUERY ERROR : problem dialing query_dest %s", query_dest))
-			return 0
+			logger.Error(fmt.Sprintf("QUERY ERROR : problem dialing query_dest %s", query_dest))
+			return 0, err
 		}
 		co := &dns.Conn{Conn: c}
 		co.WriteMsg(m)
 		in, err = co.ReadMsg()
 		if err != nil {
-			logger.Debug(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
-			return 0
+			logger.Error(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
+			return 0, err
 		}
 		co.Close()
 	} else {
@@ -408,11 +420,11 @@ func get_serial(zone_name, query_dest string) uint32 {
 		var err error
 		in, _, err = c.Exchange(m, query_dest)
 		if err != nil {
-			logger.Debug(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
-			return serial
+			logger.Error(fmt.Sprintf("QUERY ERROR : problem querying query_dest %s", query_dest))
+			return 0, err
 		}
 	}
-	return serial_query_parse(in)
+	return serial_query_parse(in), nil
 }
 
 func serial_query_parse(in *dns.Msg) uint32 {
