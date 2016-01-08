@@ -3,7 +3,7 @@ package slapdns
 import (
 	"errors"
 	"fmt"
-	"github.com/rackerlabs/dns"
+	"github.com/miekg/dns"
 	"io/ioutil"
 	"net"
 	"os"
