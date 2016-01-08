@@ -30,6 +30,8 @@ test:
 docker-build:
 		docker build -t $(DOCKER_TAG) .
 		docker run -v `pwd`:/build $(DOCKER_TAG) cp slappy /build
+		@echo "If you're using docker-machine, run:"
+		@echo 'docker-machine scp $$DOCKER_MACHINE_NAME:$$(pwd)/slappy .'
 
 clean:
 		rm -rf slappy
