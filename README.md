@@ -13,21 +13,11 @@ $ (/home/tim/code/golang) tree .
 ├── pkg
 └── src
     └── github.com
-        ├── miekg
-        │   └── dns
-        │       ├── AUTHORS
-        │       ├── clientconfig.go
-                .......
-        │       └── zscan_rr.go
-        └── pglbutt
+        └── rackerlabs
             └── slappy
-                ├── Makefile
-                ├── README.md
-                ├── send14.py
-                ├── sendnotify.py
-                └── slappy.go
 ```
 
-Makefile will get you started.
+When you clone, you should `git clone --recursive`. If you forgot, no big deal, just run `make dependencies`,
+and it'll fill out those submodules for you.
 
 There are a couple of pythonscripts to send some dns packets that the slappy will respond to.
