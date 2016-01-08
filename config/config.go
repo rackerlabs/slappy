@@ -3,7 +3,7 @@ package config
 import (
 	"flag"
 	"fmt"
-	"github.com/rackerlabs/iniflags"
+	"github.com/vharitonsky/iniflags"
 	"net"
 	"strings"
 	"time"

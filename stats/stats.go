@@ -2,7 +2,7 @@ package stats
 
 import (
 	"fmt"
-	"github.com/rackerlabs/dns"
+	"github.com/miekg/dns"
 	"io/ioutil"
 	"runtime"
 	"time"

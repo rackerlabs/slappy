@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/rackerlabs/dns"
+	"github.com/miekg/dns"
 	"os"
 	"os/signal"
 	"runtime"

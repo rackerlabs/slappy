@@ -1,0 +1,6 @@
+[submodule "vendor/github.com/vharitonsky/iniflags"]
+	path = vendor/github.com/vharitonsky/iniflags
+	url = https://github.com/vharitonsky/iniflags.git
+[submodule "vendor/github.com/miekg/dns"]
+	path = vendor/github.com/miekg/dns
+	url = https://github.com/miekg/dns.git
