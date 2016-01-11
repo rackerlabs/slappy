@@ -1,4 +1,5 @@
 DOCKER_TAG := slappy-build
+TEST_VENV := tests/.venv
 
 help:
 		@echo ""
@@ -22,10 +23,13 @@ fmt:
 		find . -maxdepth 2 -name '*.go' -exec go fmt '{}' \;
 
 test:
-		./slappy -debug &
-		.venv/bin/python send14.py
-		.venv/bin/python sendnotify.py
-		pkill slappy
+		test -d $(TEST_VENV) || virtualenv $(TEST_VENV)
+		$(TEST_VENV)/bin/pip install -r tests/test-requirements.txt
+		make -C tests start-containers
+		make -C tests check-containers
+		make -C tests write-test-config
+		$(TEST_VENV)/bin/tox -c tests/tox.ini -e py27
+		make -C tests stop-containers
 
 docker-build:
 		docker build -t $(DOCKER_TAG) .

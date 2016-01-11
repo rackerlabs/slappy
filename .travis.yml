@@ -9,10 +9,9 @@ services:
 install:
     - "sudo apt-get update && sudo apt-get install -y python-virtualenv"
 script:
-    - "sudo pip install tox"
     - "make dependencies build"
     - "./slappy -h || true"
-    - "cd tests && SLAPPY_EXE=../slappy make start-containers write-test-config && tox"
+    - "SLAPPY_EXE=../slappy make test"
 
 notifications:
     email: false
