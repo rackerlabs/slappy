@@ -269,7 +269,7 @@ func rndc(op, zone_name, output_path string) error {
 	}
 
 	if conf.Limit_rndc == false {
-		if e := exec.Command(cmd, args...).Run(); e != nil {
+		if err := exec.Command(cmd, args...).Run(); err != nil {
 			return err
 		}
 		if op == "delzone" {
