@@ -36,7 +36,7 @@ func (l *SysLogger) Warn(line string) {
 }
 
 func (l *SysLogger) Error(line string) {
-	l.SyslogWriter.Err("ERROR : " + line)
+	l.SyslogWriter.Err("ERROR: " + line)
 }
 
 type Log struct {
