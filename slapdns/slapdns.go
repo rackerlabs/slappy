@@ -284,7 +284,8 @@ func rndc(op, zone_name, output_path string) error {
 
 		return nil
 	} else {
-		rndc_string := op + " " + strings.Join(args, " ")
+		// Just used for logs
+		rndc_string := fmt.Sprintf("%s %s", op, strings.Join(args, " "))
 
 		// finished will get filled if the rndc call finishes before the timeout
 		finished := make(chan string, 1)
@@ -320,10 +321,15 @@ func rndc(op, zone_name, output_path string) error {
 				err = e
 			}
 
+			if err != nil {
+				logger.Debug(fmt.Sprintf("RNDC ERROR: %s failed: %s", rndc_string, err))
+			} else {
+				logger.Debug(fmt.Sprintf("RNDC SUCCESS: %s completed", rndc_string))
+			}
+
 			go func() {
 				<-conf.Rndc_counter
 				// We ack conf.Rndc_counter once so that another query can have the lock
-				logger.Debug("RNDC SUCCESS: " + rndc_string + " completed")
 			}()
 			// Since we've finished, we light up the finished channel, so the main function knows
 			// we've finished before the timeout
