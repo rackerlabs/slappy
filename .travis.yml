@@ -8,6 +8,8 @@ services:
 
 install:
     - "sudo apt-get update && sudo apt-get install -y python-virtualenv"
+    - go get github.com/Masterminds/glide
+
 script:
     - "make dependencies build"
     - "./slappy -h || true"

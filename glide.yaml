@@ -1,0 +1,4 @@
+package: github.com/rackerlabs/slappy
+import:
+- package: github.com/miekg/dns
+- package: github.com/vharitonsky/iniflags

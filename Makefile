@@ -41,4 +41,4 @@ clean:
 		rm -rf slappy
 
 dependencies:
-		git submodule update --init
+		glide install
