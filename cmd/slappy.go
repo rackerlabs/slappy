@@ -9,22 +9,19 @@ import (
 	"runtime"
 	"syscall"
 
-	"github.com/rackerlabs/slappy/config"
-	"github.com/rackerlabs/slappy/log"
-	"github.com/rackerlabs/slappy/slapdns"
-	"github.com/rackerlabs/slappy/stats"
+	"github.com/rackerlabs/slappy"
 )
 
 var builddate = ""
 var gitref = ""
 
 func serve(net, ip, port string) {
-	logger := log.Logger()
+	logger := slappy.Logger()
 
 	bind := fmt.Sprintf("%s:%s", ip, port)
 	server := &dns.Server{Addr: bind, Net: net}
 
-	dns.HandleFunc(".", slapdns.Handle)
+	dns.HandleFunc(".", slappy.Handle)
 	logger.Info(fmt.Sprintf("slappy starting %s listener on %s", net, bind))
 
 	err := server.ListenAndServe()
@@ -34,7 +31,7 @@ func serve(net, ip, port string) {
 }
 
 func listen() {
-	logger := log.Logger()
+	logger := slappy.Logger()
 
 	siq_quit := make(chan os.Signal)
 	signal.Notify(siq_quit, syscall.SIGINT, syscall.SIGTERM)
@@ -58,8 +55,8 @@ func main() {
 	version := flag.Bool("version", false, "prints version information")
 
 	// Set up config
-	config.Setup_config()
-	conf := config.Conf()
+	slappy.Setup_config()
+	conf := slappy.Conf()
 
 	// Exit if someone just wants to know version
 	if *version == true {
@@ -68,13 +65,13 @@ func main() {
 	}
 
 	// Set up logging
-	log.InitLog(conf.Log_syslog, conf.Logfile, conf.Debug)
+	slappy.InitLog(conf.Log_syslog, conf.Logfile, conf.Debug)
 
 	// Debug config
 	conf.Print()
 
 	// Init Stats
-	stats.Init_stats()
+	slappy.Init_stats()
 
 	go serve("tcp", conf.Bind_address, conf.Bind_port)
 	go serve("udp", conf.Bind_address, conf.Bind_port)
