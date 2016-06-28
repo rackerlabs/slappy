@@ -14,7 +14,7 @@ help:
 		@echo ""
 
 build: fmt
-		GO15VENDOREXPERIMENT=1 go build -o slappy -ldflags "-X main.builddate=`date -u '+%Y-%m-%d_%I:%M:%S%p'` -X main.gitref=`git rev-parse HEAD`" main.go
+		GO15VENDOREXPERIMENT=1 go build -o slappy -ldflags "-X main.builddate=`date -u '+%Y-%m-%d_%I:%M:%S%p'` -X main.gitref=`git rev-parse HEAD`" cmd/slappy.go
 
 run:
 		./slappy -debug
@@ -41,4 +41,4 @@ clean:
 		rm -rf slappy
 
 dependencies:
-		git submodule update --init
+		glide install

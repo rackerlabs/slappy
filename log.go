@@ -1,4 +1,4 @@
-package log
+package slappy
 
 import (
 	"io"

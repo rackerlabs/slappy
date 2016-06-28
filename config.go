@@ -1,4 +1,4 @@
-package config
+package slappy
 
 import (
 	"flag"
@@ -7,8 +7,6 @@ import (
 	"net"
 	"strings"
 	"time"
-
-	"github.com/rackerlabs/slappy/log"
 )
 
 var conf Config
@@ -17,7 +15,7 @@ type Config struct {
 	Debug           bool
 	Logfile         string
 	Log_syslog      bool
-	Logger          log.Log
+	Logger          Log
 	Bind_address    string
 	Bind_port       string
 	All_tcp         bool
@@ -125,7 +123,7 @@ func Setup_config() {
 }
 
 func (c *Config) Print() {
-	logger := log.Logger()
+	logger := Logger()
 	logger.Debug("****************CONFIG****************")
 	logger.Debug(fmt.Sprintf("debug = %t", c.Debug))
 	logger.Debug(fmt.Sprintf("log = %s", c.Logfile))

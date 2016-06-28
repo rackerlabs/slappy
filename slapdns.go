@@ -1,4 +1,4 @@
-package slapdns
+package slappy
 
 import (
 	"errors"
@@ -10,10 +10,6 @@ import (
 	"os/exec"
 	"strings"
 	"time"
-
-	"github.com/rackerlabs/slappy/config"
-	"github.com/rackerlabs/slappy/log"
-	"github.com/rackerlabs/slappy/stats"
 )
 
 // Command and Control OPCODE
@@ -29,9 +25,6 @@ const CREATE = 65282
 const DELETE = 65283
 
 func Handle(writer dns.ResponseWriter, request *dns.Msg) {
-	conf := config.Conf()
-	logger := log.Logger()
-
 	question := request.Question[0]
 
 	message := new(dns.Msg)
@@ -51,7 +44,7 @@ func Handle(writer dns.ResponseWriter, request *dns.Msg) {
 
 	logger.Debug(debug_request(*request, question, writer))
 
-	go stats.Stat("query")
+	go Stat("query")
 
 	switch request.Opcode {
 	case dns.OpcodeNotify:
@@ -72,7 +65,7 @@ func Handle(writer dns.ResponseWriter, request *dns.Msg) {
 		}
 	default:
 		if question.Name == conf.Stats_uri {
-			message = stats.Stats_dns_message(message, writer)
+			message = Stats_dns_message(message, writer)
 			logger.Debug("SUCCESS STATS : Sent runtime stats")
 			break
 		}
@@ -111,9 +104,6 @@ func handle_error(message *dns.Msg, writer dns.ResponseWriter, op string) *dns.M
 }
 
 func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
-	conf := config.Conf()
-	logger := log.Logger()
-
 	zone_name := question.Name
 
 	serial, err := get_serial(zone_name, conf.Query_dest)
@@ -157,9 +147,6 @@ func handle_create(question dns.Question, message *dns.Msg, writer dns.ResponseW
 }
 
 func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
-	conf := config.Conf()
-	logger := log.Logger()
-
 	zone_name := question.Name
 
 	serial, err := get_serial(zone_name, conf.Query_dest)
@@ -217,8 +204,6 @@ func handle_notify(question dns.Question, message *dns.Msg, writer dns.ResponseW
 }
 
 func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
-	conf := config.Conf()
-	logger := log.Logger()
 	zone_name := question.Name
 
 	serial, err := get_serial(zone_name, conf.Query_dest)
@@ -246,10 +231,7 @@ func handle_delete(question dns.Question, message *dns.Msg, writer dns.ResponseW
 
 func rndc(op, zone_name, output_path string) error {
 	// Bop the 'attempts' stat
-	go stats.Stat("rndc_att")
-
-	conf := config.Conf()
-	logger := log.Logger()
+	go Stat("rndc_att")
 
 	cmd := "rndc"
 	zone_clause := ""
@@ -280,7 +262,7 @@ func rndc(op, zone_name, output_path string) error {
 			}
 		}
 		// Bop the stat for this operation
-		go stats.Stat(op)
+		go Stat(op)
 
 		return nil
 	} else {
@@ -341,7 +323,7 @@ func rndc(op, zone_name, output_path string) error {
 			// We finished before the timeout
 
 			// Bop the stat for this operation
-			go stats.Stat(op)
+			go Stat(op)
 
 			if op == "delzone" {
 				// delete the file
@@ -365,9 +347,6 @@ func rndc(op, zone_name, output_path string) error {
 }
 
 func do_axfr(zone_name string) ([]dns.RR, error) {
-	conf := config.Conf()
-	logger := log.Logger()
-
 	result := []dns.RR{}
 	message := new(dns.Msg)
 	message.SetAxfr(zone_name)
@@ -395,9 +374,6 @@ func do_axfr(zone_name string) ([]dns.RR, error) {
 }
 
 func get_serial(zone_name, query_dest string) (uint32, error) {
-	conf := config.Conf()
-	logger := log.Logger()
-
 	var in *dns.Msg
 	m := new(dns.Msg)
 	m.SetQuestion(zone_name, dns.TypeSOA)
@@ -459,8 +435,6 @@ func write_zonefile(zone_name string, rrs []dns.RR, output_path string) error {
 }
 
 func allowed(notifier string) bool {
-	conf := config.Conf()
-
 	if len(conf.Allow_notify) == 0 {
 		return true
 	}

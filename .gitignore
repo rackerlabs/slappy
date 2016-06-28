@@ -6,3 +6,6 @@ temp*
 
 # The binary
 slappy
+
+# Vendored libs
+vendor

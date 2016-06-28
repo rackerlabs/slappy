@@ -1,4 +1,4 @@
-package stats
+package slappy
 
 import (
 	"fmt"
@@ -6,9 +6,6 @@ import (
 	"io/ioutil"
 	"runtime"
 	"time"
-
-	"github.com/rackerlabs/slappy/config"
-	"github.com/rackerlabs/slappy/log"
 )
 
 var (
@@ -23,9 +20,6 @@ var (
 )
 
 func status_file() {
-	conf := config.Conf()
-	logger := log.Logger()
-
 	filepath := conf.Status_file
 	if filepath == "" {
 		logger.Info("Not writing status files")
@@ -76,8 +70,6 @@ func runtime_stats() []string {
 }
 
 func Stats_dns_message(message *dns.Msg, writer dns.ResponseWriter) *dns.Msg {
-	conf := config.Conf()
-
 	for _, stat := range runtime_stats() {
 		txtRR := new(dns.TXT)
 		txtRR.Hdr = dns.RR_Header{Name: conf.Stats_uri, Rrtype: dns.TypeTXT, Class: dns.ClassINET, Ttl: 0}
